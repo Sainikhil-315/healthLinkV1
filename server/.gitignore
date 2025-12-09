@@ -1,0 +1,4 @@
+node_modules
+.env.example
+.env
+config/healthlink-ea8fb-firebase-adminsdk-fbsvc-2de976ebfd.json
