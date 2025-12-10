@@ -27,7 +27,8 @@ const {
   getIncidentStats,
   cancelIncident,
   getSystemLogs,
-  sendBulkNotification
+  sendBulkNotification,
+  getAnalyticsStats
 } = require('../controllers/adminController.js');
 
 const router = express.Router();
@@ -321,6 +322,13 @@ router.post(
   adminOnly,
   sanitizeInput,
   sendBulkNotification
+);
+
+router.get(
+  '/analytics',
+  authenticate,
+  adminOnly,
+  getAnalyticsStats
 );
 
 module.exports = router;

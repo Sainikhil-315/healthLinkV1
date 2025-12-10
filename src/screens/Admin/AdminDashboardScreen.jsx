@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import axios from 'axios';
-
-import { COLORS, API_URL } from '../../utils/constants';
+import { COLORS } from '../../utils/constants';
+import { apiService } from '../../services/api';
 import AdminStatsCard from '../../components/admin/AdminStatsCard';
 import AdminEmergencyAlert from '../../components/admin/AdminEmergencyAlert';
 import Loader from '../../components/common/Loader';
@@ -22,16 +21,17 @@ const AdminDashboardScreen = ({ navigation }) => {
     try {
       setLoading(true);
       const [statsRes, incidentsRes] = await Promise.all([
-        axios.get(`${API_URL}/admin/dashboard`),
-        axios.get(`${API_URL}/admin/incidents?status=pending&limit=5`)
+        apiService.getDashboardStats(),
+        apiService.getAllIncidents({ status: 'pending', limit: 5 })
       ]);
 
-      if (statsRes.data.success) {
-        setStats(statsRes.data.data);
+      if (statsRes?.success) {
+        console.log('Dashboard stats:', statsRes.data);
+        setStats(statsRes.data);
       }
 
-      if (incidentsRes.data.success) {
-        setActiveIncidents(incidentsRes.data.data.incidents);
+      if (incidentsRes?.success) {
+        setActiveIncidents(incidentsRes.data.incidents);
       }
     } catch (error) {
       console.error('Load dashboard error:', error);
@@ -192,7 +192,10 @@ const AdminDashboardScreen = ({ navigation }) => {
               <Text style={styles.actionText}>Analytics</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('BroadcastScreen')}
+            >
               <Icon name="notifications" size={28} color={COLORS.warning} />
               <Text style={styles.actionText}>Broadcast</Text>
             </TouchableOpacity>

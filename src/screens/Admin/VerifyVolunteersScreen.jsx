@@ -4,7 +4,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Toast from 'react-native-toast-message';
 import axios from 'axios';
 
-import { COLORS, API_URL } from '../../utils/constants';
+import { COLORS } from '../../utils/constants';
+import { apiService } from '../../services/api';
 import Header from '../../components/common/Header';
 import Loader from '../../components/common/Loader';
 import AdminVerificationCard from '../../components/admin/AdminVerificationCard';
@@ -26,10 +27,10 @@ const VerifyVolunteersScreen = ({ navigation }) => {
   const loadVolunteers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/admin/volunteers?status=pending`);
+      const response = await apiService.getAllVolunteers({ status: 'pending' });
       
-      if (response.data.success) {
-        setVolunteers(response.data.data.volunteers);
+      if (response.success) {
+        setVolunteers(response.data.volunteers);
       }
     } catch (error) {
       console.error('Load volunteers error:', error);
@@ -58,9 +59,9 @@ const VerifyVolunteersScreen = ({ navigation }) => {
           text: 'Approve',
           onPress: async () => {
             try {
-              const response = await axios.put(`${API_URL}/admin/volunteers/${volunteerId}/verify`);
+              const response = await apiService.verifyVolunteer(volunteerId);
               
-              if (response.data.success) {
+              if (response.success) {
                 Toast.show({
                   type: 'success',
                   text1: 'Volunteer Approved',
@@ -90,11 +91,11 @@ const VerifyVolunteersScreen = ({ navigation }) => {
     }
 
     try {
-      const response = await axios.put(`${API_URL}/admin/volunteers/${volunteerId}/reject`, {
+      const response = await apiService.rejectVolunteer(volunteerId, {
         reason: rejectReason
       });
       
-      if (response.data.success) {
+      if (response.success) {
         Toast.show({
           type: 'success',
           text1: 'Volunteer Rejected'

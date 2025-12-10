@@ -7,6 +7,7 @@ import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
 import VerifyVolunteersScreen from '../screens/Admin/VerifyVolunteersScreen';
 import ManageHospitalsScreen from '../screens/Admin/ManageHospitalsScreen';
 import AnalyticsScreen from '../screens/Admin/AnalyticsScreen';
+import BroadcastScreen from '../screens/Admin/BroadcastScreen';
 import { COLORS } from '../utils/constants';
 
 const Tab = createBottomTabNavigator();
@@ -17,6 +18,7 @@ const DashboardStack = () => (
     <Stack.Screen name="Dashboard" component={AdminDashboardScreen} />
     <Stack.Screen name="VerifyVolunteers" component={VerifyVolunteersScreen} />
     <Stack.Screen name="ManageHospitals" component={ManageHospitalsScreen} />
+    <Stack.Screen name="BroadcastScreen" component={BroadcastScreen} />
   </Stack.Navigator>
 );
 
