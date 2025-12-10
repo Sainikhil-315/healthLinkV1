@@ -25,40 +25,71 @@ async function registerHospital(req, res) {
       emergencyPhone
     } = req.body;
 
-    // Check if hospital already exists
-    const existingHospital = await Hospital.findOne({
-      $or: [{ email }, { registrationNumber }]
-    });
+    // Validate that location coordinates are provided
+    if (!location || !location.lat || !location.lng) {
+      return res.status(400).json({
+        success: false,
+        message: 'Location coordinates are required for hospital registration',
+        error: 'Please enable location services and capture your current location'
+      });
+    }
 
+    // Validate coordinates are not [0, 0]
+    if (location.lat === 0 && location.lng === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid location coordinates',
+        error: 'Please capture a valid location'
+      });
+    }
+
+    // Check if hospital already exists
+    const existingHospital = await Hospital.findOne({ email });
     if (existingHospital) {
       return res.status(409).json(createError(HOSPITAL_ERRORS.ALREADY_REGISTERED));
     }
 
-    // Create hospital
-    const hospital = await Hospital.create({
+    // Generate registration number if not provided
+    const finalRegistrationNumber = registrationNumber || 
+      `TEMP-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+    // Create hospital data with required location
+    const hospitalData = {
       name,
       email,
       phone,
       emergencyPhone: emergencyPhone || phone,
       password,
-      registrationNumber,
+      registrationNumber: finalRegistrationNumber,
+      type: type || 'Private',
+      bedAvailability: beds || {
+        general: { total: 50, available: 50 },
+        icu: { total: 20, available: 20 },
+        emergency: { total: 10, available: 10 },
+        lastUpdated: Date.now()
+      },
+      specialists: specialties || [],
       location: {
         type: 'Point',
-        coordinates: [location.lng, location.lat],
-        address: address.street,
-        city: address.city,
-        state: address.state,
-        pincode: address.pincode
-      },
-      type: type || 'Private',
-      bedAvailability: beds,
-      specialists: specialties || []
-    });
+        coordinates: [parseFloat(location.lng), parseFloat(location.lat)], // [longitude, latitude]
+        address: address?.street || 'Address pending verification',
+        city: address?.city || 'City pending verification',
+        state: address?.state || 'State pending verification',
+        pincode: address?.pincode || '000000'
+      }
+    };
+
+    const hospital = await Hospital.create(hospitalData);
 
     // Send welcome email
-    await sendUserWelcomeEmail({ email, fullName: name }, 'hospital');
+    try {
+      await sendUserWelcomeEmail({ email, fullName: name }, 'hospital');
+    } catch (emailError) {
+      logger.warn('Failed to send welcome email:', emailError);
+      // Don't fail registration if email fails
+    }
 
-    logger.info(`New hospital registered: ${name}`);
+    logger.info(`New hospital registered: ${name} at [${location.lng}, ${location.lat}]`);
 
     res.status(201).json({
       success: true,
@@ -68,20 +99,50 @@ async function registerHospital(req, res) {
           id: hospital._id,
           name: hospital.name,
           email: hospital.email,
-          isVerified: hospital.isVerified
+          isVerified: hospital.isVerified,
+          location: {
+            coordinates: hospital.location.coordinates,
+            address: hospital.location.address
+          }
         }
       }
     });
 
   } catch (error) {
     logger.error('Hospital registration error:', error);
+    
+    // Handle specific validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.keys(error.errors).map(key => ({
+        field: key,
+        message: error.errors[key].message
+      }));
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors
+      });
+    }
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(409).json({
+        success: false,
+        message: `${field} already exists`,
+        error: `A hospital with this ${field} is already registered`
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Hospital registration failed',
       error: error.message
     });
   }
-};
+}
+
 
 /**
  * @desc    Get hospital profile
@@ -172,27 +233,74 @@ async function updateBedAvailability(req, res) {
       return res.status(404).json(createError(HOSPITAL_ERRORS.NOT_FOUND));
     }
 
+    // Initialize beds if they're 0/0
+    if (!hospital.bedAvailability.general.total && !hospital.bedAvailability.general.available) {
+      hospital.bedAvailability.general = { total: 50, available: 50 };
+    }
+    if (!hospital.bedAvailability.icu.total && !hospital.bedAvailability.icu.available) {
+      hospital.bedAvailability.icu = { total: 20, available: 20 };
+    }
+    if (!hospital.bedAvailability.emergency.total && !hospital.bedAvailability.emergency.available) {
+      hospital.bedAvailability.emergency = { total: 10, available: 10 };
+    }
+
     // Update bed availability
-    if (general) {
-      hospital.bedAvailability.general.available = general.available;
-      if (general.total !== undefined) hospital.bedAvailability.general.total = general.total;
+    if (general !== undefined) {
+      if (typeof general === 'number') {
+        // If just a number, treat as available beds
+        hospital.bedAvailability.general.available = Math.min(general, hospital.bedAvailability.general.total);
+      } else {
+        // If object with available/total properties
+        if (general.available !== undefined) {
+          hospital.bedAvailability.general.available = general.available;
+        }
+        if (general.total !== undefined) {
+          hospital.bedAvailability.general.total = general.total;
+          // If available > total, cap it
+          if (hospital.bedAvailability.general.available > general.total) {
+            hospital.bedAvailability.general.available = general.total;
+          }
+        }
+      }
     }
 
-    if (icu) {
-      hospital.bedAvailability.icu.available = icu.available;
-      if (icu.total !== undefined) hospital.bedAvailability.icu.total = icu.total;
+    if (icu !== undefined) {
+      if (typeof icu === 'number') {
+        hospital.bedAvailability.icu.available = Math.min(icu, hospital.bedAvailability.icu.total);
+      } else {
+        if (icu.available !== undefined) {
+          hospital.bedAvailability.icu.available = icu.available;
+        }
+        if (icu.total !== undefined) {
+          hospital.bedAvailability.icu.total = icu.total;
+          if (hospital.bedAvailability.icu.available > icu.total) {
+            hospital.bedAvailability.icu.available = icu.total;
+          }
+        }
+      }
     }
 
-    if (emergency) {
-      hospital.bedAvailability.emergency.available = emergency.available;
-      if (emergency.total !== undefined) hospital.bedAvailability.emergency.total = emergency.total;
+    if (emergency !== undefined) {
+      if (typeof emergency === 'number') {
+        hospital.bedAvailability.emergency.available = Math.min(emergency, hospital.bedAvailability.emergency.total);
+      } else {
+        if (emergency.available !== undefined) {
+          hospital.bedAvailability.emergency.available = emergency.available;
+        }
+        if (emergency.total !== undefined) {
+          hospital.bedAvailability.emergency.total = emergency.total;
+          if (hospital.bedAvailability.emergency.available > emergency.total) {
+            hospital.bedAvailability.emergency.available = emergency.total;
+          }
+        }
+      }
     }
 
     hospital.bedAvailability.lastUpdated = Date.now();
 
     await hospital.save();
 
-    logger.info(`Bed availability updated for hospital ${hospitalId}`);
+    logger.info(`Bed availability updated for hospital ${hospitalId}`, hospital.bedAvailability);
 
     res.status(200).json({
       success: true,
@@ -427,6 +535,68 @@ async function getHospitalStats(req, res) {
   }
 };
 
+/**
+ * @desc    Get patient history for hospital
+ * @route   GET /api/v1/hospital/patient-history
+ * @access  Private (Hospital)
+ */
+async function getPatientHistory(req, res) {
+  try {
+    const hospitalId = req.user?.id;
+    const { startDate, endDate } = req.query;
+
+    if (!hospitalId) {
+      return res.status(401).json(createError(HOSPITAL_ERRORS.HOSPITAL_NOT_FOUND));
+    }
+
+    // Build date filter
+    const dateFilter = {};
+    if (startDate) {
+      dateFilter.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      dateFilter.$lte = new Date(endDate);
+    }
+
+    // Find incidents for this hospital
+    const incidents = await Incident.find({
+      hospitalId: hospitalId,
+      ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter })
+    })
+      .select('patientName patientAge bloodType severity status admittedAt dischargedAt bedType')
+      .sort({ admittedAt: -1 })
+      .lean();
+
+    // Format response to match frontend expectations
+    const formattedData = incidents.map(incident => ({
+      _id: incident._id,
+      patient: {
+        name: incident.patientName,
+        age: incident.patientAge,
+        bloodType: incident.bloodType
+      },
+      severity: incident.severity,
+      status: incident.status,
+      admittedAt: incident.admittedAt,
+      dischargedAt: incident.dischargedAt,
+      bedType: incident.bedType
+    }));
+
+    res.status(200).json({
+      success: true,
+      message: 'Patient history retrieved successfully',
+      data: formattedData
+    });
+  } catch (error) {
+    logger.error('Get patient history error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch patient history',
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   registerHospital,
   getHospitalProfile,
@@ -436,5 +606,6 @@ module.exports = {
   confirmPatientArrival,
   getAvailableHospitals,
   searchHospitals,
-  getHospitalStats
+  getHospitalStats,
+  getPatientHistory
 }

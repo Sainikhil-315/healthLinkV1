@@ -60,8 +60,28 @@ class LocationService {
             };
             resolve(this.currentLocation);
           },
-          (error) => reject(error),
-          { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
+          (error) => {
+            console.error('Geolocation error:', error);
+            // Try again with lower accuracy if high accuracy fails
+            if (error.code === 3) { // TIMEOUT
+              Geolocation.getCurrentPosition(
+                (position) => {
+                  this.currentLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
+                    timestamp: position.timestamp
+                  };
+                  resolve(this.currentLocation);
+                },
+                (err) => reject(err),
+                { enableHighAccuracy: false, timeout: 30000, maximumAge: 10000 }
+              );
+            } else {
+              reject(error);
+            }
+          },
+          { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 }
         );
       });
     } catch (error) {

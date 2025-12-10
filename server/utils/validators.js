@@ -161,32 +161,44 @@ const registerHospitalSchema = Joi.object({
   email: Joi.string().email().required(),
   phone: phoneValidation,
   password: Joi.string().min(8).required(),
+  role: Joi.string().optional(), // Allow role field from frontend
 
-  location: coordinatesSchema.required(),
-  address: Joi.string().max(500).required(),
+  // Optional fields for initial registration - can be updated later
+  location: Joi.object({
+    lat: Joi.number().min(-90).max(90).optional(),
+    lng: Joi.number().min(-180).max(180).optional()
+  }).optional(),
+  
+  address: Joi.object({
+    street: Joi.string().max(500).optional(),
+    city: Joi.string().max(100).optional(),
+    state: Joi.string().max(100).optional(),
+    pincode: Joi.string().pattern(/^\d{6}$/).optional()
+  }).optional(),
 
-  registrationNumber: Joi.string().required(),
+  registrationNumber: Joi.string().optional(),
 
   beds: Joi.object({
     general: Joi.object({
-      total: Joi.number().integer().min(0).required(),
-      available: Joi.number().integer().min(0).required()
-    }),
+      total: Joi.number().integer().min(0).optional().default(0),
+      available: Joi.number().integer().min(0).optional().default(0)
+    }).optional(),
     icu: Joi.object({
-      total: Joi.number().integer().min(0).required(),
-      available: Joi.number().integer().min(0).required()
-    }),
+      total: Joi.number().integer().min(0).optional().default(0),
+      available: Joi.number().integer().min(0).optional().default(0)
+    }).optional(),
     emergency: Joi.object({
-      total: Joi.number().integer().min(0).required(),
-      available: Joi.number().integer().min(0).required()
-    })
-  }).required(),
+      total: Joi.number().integer().min(0).optional().default(0),
+      available: Joi.number().integer().min(0).optional().default(0)
+    }).optional()
+  }).optional(),
 
-  specialties: Joi.array().items(Joi.string()).min(1).required(),
+  specialties: Joi.array().items(Joi.string()).optional().default([]),
 
-  hasOxygen: Joi.boolean().default(true),
-  hasBloodBank: Joi.boolean().default(false)
-});
+  type: Joi.string().valid('Government', 'Private', 'Charitable').optional().default('Private'),
+
+  emergencyPhone: Joi.string().optional()
+}).unknown(true);
 
 const updateHospitalBedsSchema = Joi.object({
   bedType: Joi.string().valid('general', 'icu', 'emergency').required(),
@@ -297,6 +309,7 @@ const updateDonorAvailabilitySchema = Joi.object({
 
 function validate(schema) {
   return (req, res, next) => {
+    console.log('Validation input for', req.originalUrl, req.body);
     const { error, value } = schema.validate(req.body, {
       abortEarly: false,
       stripUnknown: true
@@ -307,6 +320,9 @@ function validate(schema) {
         field: detail.path.join('.'),
         message: detail.message
       }));
+
+      // Debugging aid to surface validation issues during development
+      console.error('Validation failed:', errors);
 
       return res.status(400).json({
         success: false,

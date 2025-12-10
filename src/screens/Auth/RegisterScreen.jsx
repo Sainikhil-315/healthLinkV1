@@ -6,7 +6,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  TouchableOpacity
+  TouchableOpacity,
+  ActivityIndicator
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -14,6 +15,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import useAuthStore from '../../store/authStore';
+import useGeolocation from '../../hooks/useGeolocation';
 import { COLORS, PATTERNS, SCREENS, USER_ROLES } from '../../utils/constants';
 
 // Role options for registration
@@ -35,9 +37,11 @@ const RegisterScreen = ({ navigation }) => {
     role: USER_ROLES.USER
   });
   const [errors, setErrors] = useState({});
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [locationData, setLocationData] = useState(null);
+  const [gettingLocation, setGettingLocation] = useState(false);
 
   const { register, isLoading } = useAuthStore();
+  const { getCurrentLocation } = useGeolocation();
 
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -81,27 +85,109 @@ const RegisterScreen = ({ navigation }) => {
   };
 
   const handleRegister = async () => {
-    if (!validate()) return;
+    if (!validate()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Please fix the errors in the form'
+      });
+      return;
+    }
 
-    const result = await register({
+    // For hospital role, REQUIRE location
+    if (formData.role === USER_ROLES.HOSPITAL) {
+      if (!locationData) {
+        Toast.show({
+          type: 'error',
+          text1: 'Location Required',
+          text2: 'Hospitals must provide their location for verification'
+        });
+        return;
+      }
+
+      // Validate location is not [0, 0]
+      if (locationData.latitude === 0 && locationData.longitude === 0) {
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid Location',
+          text2: 'Please capture a valid location'
+        });
+        setLocationData(null);
+        return;
+      }
+    }
+
+    const registrationData = {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
       password: formData.password,
       role: formData.role
-    });
+    };
+
+    // Add location data for hospital - this is REQUIRED
+    if (formData.role === USER_ROLES.HOSPITAL && locationData) {
+      registrationData.location = {
+        lat: locationData.latitude,
+        lng: locationData.longitude
+      };
+      
+      console.log('Sending hospital registration with location:', {
+        lat: locationData.latitude,
+        lng: locationData.longitude
+      });
+    }
+
+    const result = await register(registrationData);
     console.log('Registration result:', result);
+    
     if (result.success) {
       Toast.show({
         type: 'success',
         text1: 'Account created!',
-        text2: 'Welcome to HealthLink'
+        text2: formData.role === USER_ROLES.HOSPITAL 
+          ? 'Your hospital registration is pending admin verification'
+          : 'Welcome to HealthLink'
       });
     } else {
       Toast.show({
         type: 'error',
         text1: 'Registration failed',
         text2: result.error || 'Please try again'
+      });
+    }
+  };
+
+  const requestLocation = async () => {
+    try {
+      setGettingLocation(true);
+      const position = await getCurrentLocation();
+      
+      // Validate the location
+      if (!position || !position.lat || !position.lng) {
+        throw new Error('Invalid location data received');
+      }
+
+      if (position.lat === 0 && position.lng === 0) {
+        throw new Error('Unable to determine accurate location. Please try again.');
+      }
+
+      setLocationData(position);
+      setGettingLocation(false);
+      
+      Toast.show({
+        type: 'success',
+        text1: 'Location Captured',
+        text2: `Lat: ${position.lat.toFixed(6)}, Lng: ${position.lng.toFixed(6)}`
+      });
+    } catch (error) {
+      setGettingLocation(false);
+      setLocationData(null);
+      
+      Toast.show({
+        type: 'error',
+        text1: 'Location Error',
+        text2: error.message || 'Failed to get location. Please enable location services.'
       });
     }
   };
@@ -138,7 +224,13 @@ const RegisterScreen = ({ navigation }) => {
                     styles.roleButton,
                     formData.role === role.value && styles.roleButtonSelected
                   ]}
-                  onPress={() => setFormData({ ...formData, role: role.value })}
+                  onPress={() => {
+                    setFormData({ ...formData, role: role.value });
+                    // Clear location if switching away from hospital
+                    if (role.value !== USER_ROLES.HOSPITAL) {
+                      setLocationData(null);
+                    }
+                  }}
                 >
                   <Icon 
                     name={role.icon} 
@@ -206,10 +298,84 @@ const RegisterScreen = ({ navigation }) => {
             error={errors.confirmPassword}
           />
 
+          {/* Location permission for hospital - REQUIRED */}
+          {formData.role === USER_ROLES.HOSPITAL && (
+            <View style={styles.locationSection}>
+              <View style={styles.locationHeader}>
+                <Text style={styles.locationLabel}>
+                  📍 Location Verification
+                </Text>
+                <Text style={styles.locationRequired}>*Required</Text>
+              </View>
+              
+              <View style={styles.locationInfo}>
+                <Icon name="information-circle" size={16} color={COLORS.info} />
+                <Text style={styles.locationInfoText}>
+                  Your hospital's location is required for verification and to help patients find you during emergencies.
+                </Text>
+              </View>
+
+              <TouchableOpacity 
+                style={[
+                  styles.locationButton,
+                  locationData && styles.locationButtonActive
+                ]}
+                onPress={requestLocation}
+                disabled={gettingLocation}
+              >
+                {gettingLocation ? (
+                  <>
+                    <ActivityIndicator color={COLORS.white} />
+                    <Text style={styles.locationButtonText}>Getting Location...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Icon 
+                      name={locationData ? "checkmark-circle" : "location"} 
+                      size={20} 
+                      color={COLORS.white} 
+                    />
+                    <Text style={styles.locationButtonText}>
+                      {locationData ? 'Location Captured ✓' : 'Tap to Capture Location'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {locationData && (
+                <View style={styles.locationCaptured}>
+                  <View style={styles.locationCoords}>
+                    <Icon name="checkmark-circle" size={18} color={COLORS.success} />
+                    <Text style={styles.locationCoordsText}>
+                      Latitude: {locationData.lat?.toFixed(6) || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.locationCoords}>
+                    <Icon name="checkmark-circle" size={18} color={COLORS.success} />
+                    <Text style={styles.locationCoordsText}>
+                      Longitude: {locationData.lng?.toFixed(6) || 'N/A'}
+                    </Text>
+                  </View>
+                  {locationData.accuracy && (
+                    <View style={styles.locationCoords}>
+                      <Icon name="radio-button-on" size={18} color={COLORS.info} />
+                      <Text style={styles.locationAccuracyText}>
+                        Accuracy: ±{locationData.accuracy.toFixed(0)}m
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+
           <Button
-            title="Create Account"
+            title={formData.role === USER_ROLES.HOSPITAL && !locationData 
+              ? 'Capture Location First' 
+              : 'Create Account'}
             onPress={handleRegister}
             loading={isLoading}
+            disabled={formData.role === USER_ROLES.HOSPITAL && !locationData}
             style={styles.registerButton}
           />
 
@@ -298,6 +464,87 @@ const styles = StyleSheet.create({
   roleButtonTextSelected: {
     color: COLORS.primary,
     fontWeight: '600'
+  },
+  locationSection: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30'
+  },
+  locationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8
+  },
+  locationLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text
+  },
+  locationRequired: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.error
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 12,
+    backgroundColor: COLORS.info + '10',
+    borderRadius: 8,
+    marginBottom: 12
+  },
+  locationInfoText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 18
+  },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8
+  },
+  locationButtonActive: {
+    backgroundColor: COLORS.success
+  },
+  locationButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  locationCaptured: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: COLORS.success + '10',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.success + '30'
+  },
+  locationCoords: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6
+  },
+  locationCoordsText: {
+    fontSize: 13,
+    color: COLORS.success,
+    fontWeight: '500'
+  },
+  locationAccuracyText: {
+    fontSize: 12,
+    color: COLORS.info,
+    fontWeight: '500'
   },
   registerButton: {
     marginTop: 8,

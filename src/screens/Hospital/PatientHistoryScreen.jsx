@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } fr
 import Icon from 'react-native-vector-icons/Ionicons';
 
 import { COLORS } from '../../utils/constants';
+import { apiService } from '../../services/api';
 import Card from '../../components/common/Card';
 import Loader from '../../components/common/Loader';
 
@@ -19,30 +20,45 @@ const PatientHistoryScreen = () => {
   const loadPatients = async () => {
     try {
       setLoading(true);
-      // TODO: Implement API call
-      // const result = await hospitalService.getPatientHistory({ filter });
       
-      // Mock data for now
-      setPatients([
-        {
-          _id: '1',
-          patient: { name: 'John Doe', age: 45, bloodType: 'O+' },
-          severity: 'high',
-          admittedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-          status: 'admitted',
-          bedType: 'icu'
-        },
-        {
-          _id: '2',
-          patient: { name: 'Jane Smith', age: 32, bloodType: 'A+' },
-          severity: 'medium',
-          admittedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-          status: 'discharged',
-          bedType: 'general'
+      // Calculate date range based on filter
+      const now = new Date();
+      let startDate = new Date(0); // Default: all time
+      
+      switch (filter) {
+        case 'today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'week':
+          const weekAgo = new Date(now);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          startDate = weekAgo;
+          break;
+        case 'month':
+          const monthAgo = new Date(now);
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          startDate = monthAgo;
+          break;
+        default: // 'all'
+          startDate = new Date(0);
+      }
+
+      // Fetch from backend with date filter
+      const result = await apiService.get('/hospital/patient-history', {
+        params: {
+          startDate: startDate.toISOString(),
+          endDate: now.toISOString()
         }
-      ]);
+      });
+
+      if (result?.data?.success) {
+        setPatients(result.data.data || []);
+      } else {
+        setPatients([]);
+      }
     } catch (error) {
       console.error('Load patients error:', error);
+      setPatients([]);
     } finally {
       setLoading(false);
     }

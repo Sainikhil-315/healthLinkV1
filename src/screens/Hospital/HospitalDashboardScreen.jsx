@@ -116,7 +116,7 @@ const HospitalDashboardScreen = ({ navigation }) => {
             )}
           </View>
         </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
           <Icon name="settings-outline" size={24} color={COLORS.text} />
         </TouchableOpacity>
       </View>
@@ -173,18 +173,6 @@ const HospitalDashboardScreen = ({ navigation }) => {
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Incoming Patients</Text>
               <Text style={styles.actionSubtitle}>View ambulances en route</Text>
-            </View>
-            <Icon name="chevron-forward" size={20} color={COLORS.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => navigation.navigate('ManageBeds')}
-          >
-            <Icon name="bed-outline" size={24} color={COLORS.info} />
-            <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>Manage Beds</Text>
-              <Text style={styles.actionSubtitle}>Update bed availability</Text>
             </View>
             <Icon name="chevron-forward" size={20} color={COLORS.textSecondary} />
           </TouchableOpacity>

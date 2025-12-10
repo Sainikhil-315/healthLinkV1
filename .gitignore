@@ -2,6 +2,7 @@
 #
 .DS_Store
 android/
+hs_err_pid5184.log
 # Xcode
 #
 build/
@@ -24,6 +25,7 @@ DerivedData
 
 # Android/IntelliJ
 #
+android/
 build/
 .idea
 .gradle
