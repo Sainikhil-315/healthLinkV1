@@ -17,7 +17,8 @@ const {
   confirmPatientArrival,
   getAvailableHospitals,
   searchHospitals,
-  getHospitalStats
+  getHospitalStats,
+  getPatientHistory
 } = require('../controllers/hospitalController.js');
 
 const router = express.Router();
@@ -138,11 +139,16 @@ router.get(
  * @desc    Get hospital statistics
  * @access  Private (Hospital)
  */
+/**
+ * @route   GET /api/v1/hospital/patient-history
+ * @desc    Get patient history with date filtering
+ * @access  Private (Hospital)
+ */
 router.get(
-  '/stats',
+  '/patient-history',
   authenticate,
   hospitalOnly,
-  getHospitalStats
+  getPatientHistory
 );
 
 module.exports = router;

@@ -1,7 +1,8 @@
 # OSX
 #
 .DS_Store
-
+android/
+hs_err_pid5184.log
 # Xcode
 #
 build/

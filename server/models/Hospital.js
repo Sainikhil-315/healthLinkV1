@@ -98,7 +98,7 @@ const hospitalSchema = new mongoose.Schema({
     select: false
   },
   
-  // Location
+  // Location - FIXED: Made address fields optional with proper validation
   location: {
     type: {
       type: String,
@@ -107,24 +107,39 @@ const hospitalSchema = new mongoose.Schema({
     },
     coordinates: {
       type: [Number], // [longitude, latitude]
-      required: true
+      required: true,
+      validate: {
+        validator: function(v) {
+          // Must be valid coordinates: longitude between -180 and 180, latitude between -90 and 90
+          return Array.isArray(v) && v.length === 2 && 
+                 v[0] >= -180 && v[0] <= 180 && 
+                 v[1] >= -90 && v[1] <= 90 &&
+                 !(v[0] === 0 && v[1] === 0); // Don't allow [0, 0] as valid location
+        },
+        message: 'Valid coordinates are required for hospital registration'
+      }
     },
     address: {
       type: String,
-      required: true
+      default: 'Address pending verification'
     },
     city: {
       type: String,
-      required: true
+      default: 'City pending verification'
     },
     state: {
       type: String,
-      required: true
+      default: 'State pending verification'
     },
     pincode: {
       type: String,
-      required: true,
-      match: /^\d{6}$/
+      default: '000000',
+      validate: {
+        validator: function(v) {
+          return /^\d{6}$/.test(v);
+        },
+        message: 'Pincode must be 6 digits'
+      }
     }
   },
   
@@ -138,7 +153,13 @@ const hospitalSchema = new mongoose.Schema({
   // Bed Availability
   bedAvailability: {
     type: bedAvailabilitySchema,
-    required: true
+    required: false,
+    default: {
+      general: { total: 0, available: 0 },
+      icu: { total: 0, available: 0 },
+      emergency: { total: 0, available: 0 },
+      lastUpdated: new Date()
+    }
   },
   
   // Specialists
@@ -196,7 +217,6 @@ const hospitalSchema = new mongoose.Schema({
 
 // Indexes
 hospitalSchema.index({ 'location.coordinates': '2dsphere' });
-// hospitalSchema.index({ name: 1 });
 hospitalSchema.index({ isVerified: 1, isActive: 1 });
 hospitalSchema.index({ acceptingEmergencies: 1 });
 

@@ -59,7 +59,15 @@ const useAuthStore = create((set, get) => ({
     try {
       console.log('Registering user with data:', userData);
       set({ isLoading: true, error: null });
-      const response = await apiService.register(userData);
+      
+      // Use different endpoint for hospital registration
+      let response;
+      if (userData.role === 'hospital') {
+        response = await apiService.registerHospital(userData);
+      } else {
+        response = await apiService.register(userData);
+      }
+      
       console.log('Registration response:', response);
       const { user, token, refreshToken } = response.data;
 
@@ -155,39 +163,55 @@ const useAuthStore = create((set, get) => ({
       }
 
       if (token && userData) {
-        const user = JSON.parse(userData);
-        
-        set({
-          user,
-          token,
-          refreshToken,
-          isAuthenticated: true,
-          isLoading: false
-        });
-
-        // Reconnect socket
         try {
-          await socketService.connect();
-        } catch (socketError) {
-          console.warn('Socket connection error:', socketError);
-        }
+          const user = JSON.parse(userData);
+          
+          // Verify user has a valid role
+          if (!user || !user.role) {
+            console.warn('Invalid user data - no role found');
+            set({ isLoading: false, isAuthenticated: false });
+            return false;
+          }
 
-        // Refresh user data
-        try {
-          const response = await apiService.getCurrentUser();
-          set({ user: response.data.user });
-        } catch (error) {
-          console.log('Failed to refresh user data:', error);
-        }
+          set({
+            user,
+            token,
+            refreshToken,
+            isAuthenticated: true,
+            isLoading: false
+          });
 
-        return true;
+          // Reconnect socket
+          try {
+            await socketService.connect();
+          } catch (socketError) {
+            console.warn('Socket connection error:', socketError);
+          }
+
+          // Refresh user data to ensure it's current
+          try {
+            const response = await apiService.get('/user/profile');
+            if (response?.data?.success && response.data.data?.user) {
+              set({ user: response.data.data.user });
+            }
+          } catch (error) {
+            console.log('Failed to refresh user data:', error);
+          }
+
+          return true;
+        } catch (parseError) {
+          console.error('Failed to parse user data:', parseError);
+          set({ isLoading: false, isAuthenticated: false });
+          return false;
+        }
       } else {
-        set({ isLoading: false });
+        console.log('No stored auth data found');
+        set({ isLoading: false, isAuthenticated: false });
         return false;
       }
     } catch (error) {
       console.error('Load stored auth error:', error);
-      set({ isLoading: false });
+      set({ isLoading: false, isAuthenticated: false });
       return false;
     }
   },
