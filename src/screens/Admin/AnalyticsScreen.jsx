@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
 
-import { COLORS, API_URL } from '../../utils/constants';
+import { COLORS } from '../../utils/constants';
+import { apiService } from '../../services/api';
 import Header from '../../components/common/Header';
 import Loader from '../../components/common/Loader';
 import Card from '../../components/common/Card';
@@ -23,12 +24,12 @@ const AnalyticsScreen = ({ navigation }) => {
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/admin/analytics`, {
-        params: { timeframe }
+      const response = await apiService.getAnalyticsStats({
+        timeframe
       });
 
-      if (response.data.success) {
-        setAnalytics(response.data.data);
+      if (response.success) {
+        setAnalytics(response.data);
       }
     } catch (error) {
       console.error('Load analytics error:', error);

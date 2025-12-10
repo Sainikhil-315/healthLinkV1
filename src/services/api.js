@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, STORAGE_KEYS } from '../utils/constants';
+import { getAnalyticsStats } from '../../server/controllers/adminController';
 
 // Create axios instance
 const api = axios.create({
@@ -178,13 +179,16 @@ export const apiService = {
   verifyAmbulance: (ambulanceId) => api.put(`/admin/ambulances/${ambulanceId}/verify`),
   getAllHospitals: (params) => api.get('/admin/hospitals', { params }),
   verifyHospital: (hospitalId) => api.put(`/admin/hospitals/${hospitalId}/verify`),
+  updateHospitalStatus: (hospitalId, data) => api.put(`/admin/hospitals/${hospitalId}/status`, data),
   getAllVolunteers: (params) => api.get('/admin/volunteers', { params }),
   verifyVolunteer: (volunteerId) => api.put(`/admin/volunteers/${volunteerId}/verify`),
   rejectVolunteer: (volunteerId, reason) => api.put(`/admin/volunteers/${volunteerId}/reject`, { reason }),
   getAllDonors: (params) => api.get('/admin/donors', { params }),
   getAllIncidents: (params) => api.get('/admin/incidents', { params }),
   getIncidentStats: () => api.get('/admin/incidents/stats'),
-  cancelIncident: (incidentId, reason) => api.put(`/admin/incidents/${incidentId}/cancel`, { reason })
+  cancelIncident: (incidentId, reason) => api.put(`/admin/incidents/${incidentId}/cancel`, { reason }),
+  getAnalyticsStats: (params) => api.get('/admin/analytics', { params }),
+  sendBulkNotification: (data) => api.post('/admin/notifications/broadcast', data)
 };
 
 export default api;

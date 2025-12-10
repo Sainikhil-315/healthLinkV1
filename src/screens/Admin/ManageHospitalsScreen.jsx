@@ -5,6 +5,7 @@ import Toast from 'react-native-toast-message';
 import axios from 'axios';
 
 import { COLORS, API_URL } from '../../utils/constants';
+import { apiService } from '../../services/api';
 import Header from '../../components/common/Header';
 import Loader from '../../components/common/Loader';
 import Card from '../../components/common/Card';
@@ -28,10 +29,10 @@ const ManageHospitalsScreen = ({ navigation }) => {
       if (filter === 'verified') params.verified = 'true';
       if (filter === 'unverified') params.verified = 'false';
 
-      const response = await axios.get(`${API_URL}/admin/hospitals`, { params });
+      const response = await apiService.getAllHospitals({ params });
       
-      if (response.data.success) {
-        setHospitals(response.data.data.hospitals);
+      if (response.success) {
+        setHospitals(response.data.hospitals);
       }
     } catch (error) {
       console.error('Load hospitals error:', error);
@@ -60,9 +61,9 @@ const ManageHospitalsScreen = ({ navigation }) => {
           text: 'Verify',
           onPress: async () => {
             try {
-              const response = await axios.put(`${API_URL}/admin/hospitals/${hospitalId}/verify`);
+              const response = await apiService.verifyHospital(hospitalId);
               
-              if (response.data.success) {
+              if (response.success) {
                 Toast.show({
                   type: 'success',
                   text1: 'Hospital Verified',
@@ -93,12 +94,12 @@ const ManageHospitalsScreen = ({ navigation }) => {
           style: isActive ? 'destructive' : 'default',
           onPress: async () => {
             try {
-              const response = await axios.put(
-                `${API_URL}/admin/hospitals/${hospitalId}/status`,
+              const response = await apiService.updateHospitalStatus(
+                hospitalId,
                 { isActive: !isActive }
               );
               
-              if (response.data.success) {
+              if (response.success) {
                 Toast.show({
                   type: 'success',
                   text1: `Hospital ${isActive ? 'Suspended' : 'Activated'}`

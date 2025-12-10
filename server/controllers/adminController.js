@@ -829,44 +829,60 @@ async function getSystemLogs(req, res) {
  */
 async function sendBulkNotification(req, res) {
   try {
-    const { title, message, targetRole, userIds } = req.body;
+    // Debug: Log the incoming request
+    console.log('📩 Broadcast request body:', JSON.stringify(req.body, null, 2));
+    
+    const { title, message, recipientModel, type } = req.body;
 
     let recipients = [];
+    let targetModel = recipientModel; // This should already be 'User', 'Hospital', etc. from frontend
 
-    if (userIds && userIds.length > 0) {
-      recipients = userIds;
-    } else if (targetRole) {
-      // Get all users of specific role
-      const Model = targetRole === 'user' ? User :
-        targetRole === 'ambulance' ? Ambulance :
-          targetRole === 'hospital' ? Hospital :
-            targetRole === 'volunteer' ? Volunteer :
-              targetRole === 'donor' ? Donor : User;
-
-      const users = await Model.find({ isActive: true }).select('_id');
-      recipients = users.map(u => u._id);
+    // Validate recipientModel
+    const validModels = ['User', 'Hospital', 'Ambulance', 'Volunteer', 'Donor'];
+    if (!validModels.includes(targetModel)) {
+      console.log('❌ Invalid recipientModel:', targetModel);
+      return res.status(400).json({
+        success: false,
+        message: `Invalid recipientModel. Must be one of: ${validModels.join(', ')}`
+      });
     }
+    
+    console.log('✅ Valid recipientModel:', targetModel);
+
+    // Get the appropriate model
+    const Model = targetModel === 'User' ? User :
+      targetModel === 'Ambulance' ? Ambulance :
+        targetModel === 'Hospital' ? Hospital :
+          targetModel === 'Volunteer' ? Volunteer :
+            targetModel === 'Donor' ? Donor : User;
+
+    // Get all active users of specific role
+    const users = await Model.find({ isActive: true }).select('_id');
+    recipients = users.map(u => u._id);
+    
+    console.log(`📊 Found ${recipients.length} active ${targetModel}s`);
 
     if (recipients.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No recipients specified'
+        message: 'No active recipients found for the specified role'
       });
     }
 
-    // Broadcast notification
-    await broadcastToUsers(recipients, targetRole || 'User', {
-      type: 'system',
+    // Broadcast notification with correct enum values
+    await broadcastToUsers(recipients, targetModel, {
+      type: type || 'system_update', // ✅ Use valid enum value
       title,
       body: message,
       priority: 'medium'
     });
 
-    logger.info(`Bulk notification sent to ${recipients.length} users`);
+    logger.info(`Bulk notification sent to ${recipients.length} ${targetModel}s`);
 
     res.status(200).json({
       success: true,
-      message: `Notification sent to ${recipients.length} users`
+      message: `Notification sent to ${recipients.length} ${targetModel}(s)`,
+      count: recipients.length
     });
 
   } catch (error) {
@@ -877,7 +893,130 @@ async function sendBulkNotification(req, res) {
       error: error.message
     });
   }
-};
+}
+
+/**
+  * @desc    Get analytics dashboard data (real DB aggregation)
+  * @route   GET /api/v1/admin/analytics
+  * @access  Private (Admin)
+*/
+async function getAnalyticsStats(req, res) {
+  try {
+    const { timeframe = 'week' } = req.query;
+    // Calculate date range for timeframe
+    let startDate = new Date();
+    if (timeframe === 'week') startDate.setDate(startDate.getDate() - 7);
+    else if (timeframe === 'month') startDate.setMonth(startDate.getMonth() - 1);
+    else if (timeframe === 'year') startDate.setFullYear(startDate.getFullYear() - 1);
+
+    // Emergencies
+    const totalEmergencies = await Incident.countDocuments();
+    const resolvedEmergencies = await Incident.countDocuments({ status: 'resolved' });
+    const emergenciesInPeriod = await Incident.countDocuments({ createdAt: { $gte: startDate } });
+    const resolvedInPeriod = await Incident.countDocuments({ status: 'resolved', resolvedAt: { $gte: startDate } });
+    // Change: compare previous period
+    let prevStartDate = new Date(startDate);
+    if (timeframe === 'week') prevStartDate.setDate(prevStartDate.getDate() - 7);
+    else if (timeframe === 'month') prevStartDate.setMonth(prevStartDate.getMonth() - 1);
+    else if (timeframe === 'year') prevStartDate.setFullYear(prevStartDate.getFullYear() - 1);
+    const prevEmergencies = await Incident.countDocuments({ createdAt: { $gte: prevStartDate, $lt: startDate } });
+    const prevResolved = await Incident.countDocuments({ status: 'resolved', resolvedAt: { $gte: prevStartDate, $lt: startDate } });
+
+    // Performance metrics
+    const perfAgg = await Incident.aggregate([
+      { $match: { createdAt: { $gte: startDate } } },
+      {
+        $group: {
+          _id: null,
+          avgResponseTime: { $avg: "$responseTime" },
+          avgPickupTime: { $avg: "$pickupTime" },
+          avgTransferTime: { $avg: "$transferTime" },
+          successRate: {
+            $avg: {
+              $cond: [{ $eq: ["$status", "resolved"] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
+    const performance = perfAgg[0] || {};
+
+    // Users
+    const activeUsers = await User.countDocuments({ isActive: true });
+    const prevActiveUsers = await User.countDocuments({ isActive: true, updatedAt: { $gte: prevStartDate, $lt: startDate } });
+
+    // Resources
+    const totalAmbulances = await Ambulance.countDocuments();
+    const utilizedAmbulances = await Ambulance.countDocuments({ status: { $ne: 'available' } });
+    const totalBedsAgg = await Hospital.aggregate([
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $add: ["$bedAvailability.general.total", "$bedAvailability.icu.total", "$bedAvailability.emergency.total"] } },
+          occupied: { $sum: { $add: ["$bedAvailability.general.occupied", "$bedAvailability.icu.occupied", "$bedAvailability.emergency.occupied"] } }
+        }
+      }
+    ]);
+    const beds = totalBedsAgg[0] || { total: 0, occupied: 0 };
+    const totalVolunteers = await Volunteer.countDocuments();
+    const activeVolunteers = await Volunteer.countDocuments({ isActive: true });
+
+    // Top locations (by emergency count)
+    const topLocationsAgg = await Incident.aggregate([
+      { $group: { _id: "$location.city", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]);
+    const locations = topLocationsAgg.map(l => ({ name: l._id || "Unknown", count: l.count }));
+
+    // Severity distribution
+    const severityAgg = await Incident.aggregate([
+      { $group: { _id: "$severity", count: { $sum: 1 } } }
+    ]);
+    const severity = severityAgg.map(s => ({ level: s._id, count: s.count }));
+
+    // Compose analytics object
+    const analytics = {
+      emergencies: {
+        total: totalEmergencies,
+        change: prevEmergencies ? Math.round(((emergenciesInPeriod - prevEmergencies) / (prevEmergencies || 1)) * 100) : 0,
+        resolved: resolvedEmergencies,
+        resolvedChange: prevResolved ? Math.round(((resolvedInPeriod - prevResolved) / (prevResolved || 1)) * 100) : 0
+      },
+      performance: {
+        avgResponseTime: Math.round(performance.avgResponseTime || 0),
+        responseTimeChange: 0, // Could be calculated similarly to emergencies change
+        avgPickupTime: Math.round(performance.avgPickupTime || 0),
+        avgTransferTime: Math.round(performance.avgTransferTime || 0),
+        successRate: Math.round((performance.successRate || 0) * 100)
+      },
+      users: {
+        active: activeUsers,
+        activeChange: prevActiveUsers ? Math.round(((activeUsers - prevActiveUsers) / (prevActiveUsers || 1)) * 100) : 0
+      },
+      resources: {
+        ambulances: {
+          utilized: utilizedAmbulances,
+          total: totalAmbulances
+        },
+        beds: {
+          occupied: beds.occupied,
+          total: beds.total
+        },
+        volunteers: {
+          active: activeVolunteers,
+          total: totalVolunteers
+        }
+      },
+      locations,
+      severity
+    };
+
+    res.status(200).json({ success: true, data: analytics });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch analytics', error: error.message });
+  }
+}
 
 module.exports = {
   getDashboardStats,
@@ -900,4 +1039,5 @@ module.exports = {
   cancelIncident,
   getSystemLogs,
   sendBulkNotification,
+  getAnalyticsStats
 }

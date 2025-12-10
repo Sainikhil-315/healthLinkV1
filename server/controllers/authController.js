@@ -153,7 +153,8 @@ async function login(req, res) {
     for (const { Model, role } of models) {
       user = await Model.findOne({ email }).select('+password');
       if (user) {
-        userRole = role;
+        // For User model, use user.role from DB (could be 'admin' or 'user')
+        userRole = (Model === User) ? user.role : role;
         break;
       }
     }
