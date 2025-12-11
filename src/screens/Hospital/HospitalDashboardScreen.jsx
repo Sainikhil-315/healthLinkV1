@@ -53,9 +53,7 @@ const HospitalDashboardScreen = ({ navigation }) => {
   };
 
   const handleBedUpdate = async (bedType, newValue) => {
-    const result = await hospitalService.updateBedAvailability({
-      [bedType]: { available: newValue }
-    });
+    const result = await hospitalService.updateBedAvailability({ bedType, available: newValue });
 
     if (result.success) {
       Toast.show({

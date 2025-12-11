@@ -25,9 +25,20 @@ const ManageBedsScreen = ({ navigation }) => {
       
       if (result.success) {
         setHospital(result.data.hospital);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: result.error || 'Failed to load hospital data'
+        });
       }
     } catch (error) {
       console.error('Load data error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'An unexpected error occurred'
+      });
     } finally {
       setLoading(false);
     }
@@ -39,29 +50,60 @@ const ManageBedsScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const handleBedUpdate = async (bedType, newValue) => {
-    const result = await hospitalService.updateBedAvailability({
-      [bedType]: { available: newValue }
-    });
-
+  // ✅ FIXED: Ensure correct parameter types and validation
+  // Support updating both available and total
+  const handleBedUpdate = async (bedType, available, total) => {
+    // Validate inputs
+    if (!bedType || typeof bedType !== 'string') {
+      Toast.show({ type: 'error', text1: 'Invalid Input', text2: 'Invalid bed type' });
+      return;
+    }
+    const availableInt = parseInt(available, 10);
+    const totalInt = parseInt(total, 10);
+    if (isNaN(availableInt) || availableInt < 0 || isNaN(totalInt) || totalInt < 0) {
+      Toast.show({ type: 'error', text1: 'Invalid Input', text2: 'Invalid bed count' });
+      return;
+    }
+    if (availableInt > totalInt) {
+      Toast.show({ type: 'error', text1: 'Invalid Input', text2: 'Available beds cannot exceed total beds.' });
+      return;
+    }
+    // Always send both available and total to backend
+    const result = await hospitalService.updateBedAvailability({ bedType, available: availableInt, total: totalInt });
     if (result.success) {
-      Toast.show({
-        type: 'success',
-        text1: 'Updated successfully',
-        text2: `${bedType} beds: ${newValue} available`
-      });
+      Toast.show({ type: 'success', text1: 'Beds added', text2: `${bedType} beds: now ${totalInt} total, ${availableInt} available` });
       await loadData();
     } else {
-      Toast.show({
-        type: 'error',
-        text1: 'Update failed',
-        text2: result.error
-      });
+      Toast.show({ type: 'error', text1: 'Update failed', text2: result.error || 'Failed to update bed availability' });
     }
   };
 
   if (loading) {
     return <Loader fullScreen message="Loading bed information..." />;
+  }
+
+  if (!hospital) {
+    return (
+      <View style={styles.container}>
+        <Header
+          title="Manage Beds"
+          subtitle="Update bed availability"
+          onBackPress={() => navigation.goBack()}
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Icon name="alert-circle-outline" size={64} color={COLORS.error} />
+          <Text style={{ fontSize: 18, color: COLORS.text, marginTop: 16, textAlign: 'center' }}>
+            Failed to load hospital data
+          </Text>
+          <TouchableOpacity 
+            onPress={loadData}
+            style={{ marginTop: 16, padding: 12, backgroundColor: COLORS.primary, borderRadius: 8 }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -115,18 +157,18 @@ const ManageBedsScreen = ({ navigation }) => {
           <View style={styles.overviewGrid}>
             <View style={styles.overviewItem}>
               <Text style={styles.overviewValue}>
-                {hospital?.bedAvailability?.general?.available + 
-                 hospital?.bedAvailability?.icu?.available + 
-                 hospital?.bedAvailability?.emergency?.available || 0}
+                {(hospital?.bedAvailability?.general?.available || 0) + 
+                 (hospital?.bedAvailability?.icu?.available || 0) + 
+                 (hospital?.bedAvailability?.emergency?.available || 0)}
               </Text>
               <Text style={styles.overviewLabel}>Total Available</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.overviewItem}>
               <Text style={styles.overviewValue}>
-                {hospital?.bedAvailability?.general?.total + 
-                 hospital?.bedAvailability?.icu?.total + 
-                 hospital?.bedAvailability?.emergency?.total || 0}
+                {(hospital?.bedAvailability?.general?.total || 0) + 
+                 (hospital?.bedAvailability?.icu?.total || 0) + 
+                 (hospital?.bedAvailability?.emergency?.total || 0)}
               </Text>
               <Text style={styles.overviewLabel}>Total Capacity</Text>
             </View>
