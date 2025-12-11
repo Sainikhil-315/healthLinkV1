@@ -1,4 +1,5 @@
-import * as Location from 'expo-location';
+import Geolocation from '@react-native-community/geolocation';
+import { PermissionsAndroid, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../utils/constants';
 import socketService from './socketService';
@@ -15,33 +16,32 @@ class LocationService {
     try {
       // Check if permission already granted
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.LOCATION_PERMISSION);
-      
       if (stored === 'granted') {
-        const { status } = await Location.getForegroundPermissionsAsync();
-        if (status === 'granted') {
+        return { granted: true };
+      }
+
+      // Android permission request
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'HealthLink needs access to your location for emergency services.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_PERMISSION, 'granted');
           return { granted: true };
+        } else {
+          return { granted: false, error: 'Location permission denied' };
         }
       }
-
-      // Request foreground permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        return { 
-          granted: false, 
-          error: 'Location permission denied' 
-        };
-      }
-
-      // Request background permission for ambulance/volunteer tracking
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-      
+      // iOS permissions handled in Info.plist
       await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_PERMISSION, 'granted');
-
-      return { 
-        granted: true, 
-        background: backgroundStatus === 'granted' 
-      };
+      return { granted: true };
     } catch (error) {
       console.error('Permission request error:', error);
       return { granted: false, error: error.message };
@@ -52,23 +52,28 @@ class LocationService {
   async getCurrentLocation() {
     try {
       const { granted } = await this.requestPermissions();
-      
       if (!granted) {
         throw new Error('Location permission not granted');
       }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High
+      return new Promise((resolve, reject) => {
+        Geolocation.getCurrentPosition(
+          (position) => {
+            const loc = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              timestamp: position.timestamp
+            };
+            this.currentLocation = loc;
+            resolve(loc);
+          },
+          (error) => {
+            console.error('Get current location error:', error);
+            reject(error);
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        );
       });
-
-      this.currentLocation = {
-        lat: location.coords.latitude,
-        lng: location.coords.longitude,
-        accuracy: location.coords.accuracy,
-        timestamp: location.timestamp
-      };
-
-      return this.currentLocation;
     } catch (error) {
       console.error('Get current location error:', error);
       throw error;
@@ -82,39 +87,29 @@ class LocationService {
         console.log('Already tracking location');
         return;
       }
-
       const { granted } = await this.requestPermissions();
-      
       if (!granted) {
         throw new Error('Location permission not granted');
       }
-
-      this.watchSubscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 5000, // Update every 5 seconds
-          distanceInterval: 10 // Or every 10 meters
-        },
-        (location) => {
-          const position = {
-            lat: location.coords.latitude,
-            lng: location.coords.longitude,
-            accuracy: location.coords.accuracy,
-            timestamp: location.timestamp
+      this.watchId = Geolocation.watchPosition(
+        (position) => {
+          const pos = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: position.timestamp
           };
-
-          this.currentLocation = position;
-
-          // Send to socket for real-time updates
-          socketService.updateLocation(position);
-
-          // Call callback if provided
+          this.currentLocation = pos;
+          socketService.updateLocation(pos);
           if (callback) {
-            callback(position);
+            callback(pos);
           }
-        }
+        },
+        (error) => {
+          console.error('Location tracking error:', error);
+        },
+        { enableHighAccuracy: true, distanceFilter: 10, interval: 5000 }
       );
-
       this.isTracking = true;
       console.log('Location tracking started');
     } catch (error) {
@@ -125,9 +120,9 @@ class LocationService {
 
   // Stop watching location
   stopTracking() {
-    if (this.watchSubscription) {
-      this.watchSubscription.remove();
-      this.watchSubscription = null;
+    if (this.watchId !== null) {
+      Geolocation.clearWatch(this.watchId);
+      this.watchId = null;
       this.isTracking = false;
       console.log('Location tracking stopped');
     }

@@ -163,11 +163,11 @@ const registerHospitalSchema = Joi.object({
   password: Joi.string().min(8).required(),
   role: Joi.string().optional(), // Allow role field from frontend
 
-  // Optional fields for initial registration - can be updated later
+  // Location is now required during registration
   location: Joi.object({
-    lat: Joi.number().min(-90).max(90).optional(),
-    lng: Joi.number().min(-180).max(180).optional()
-  }).optional(),
+    lat: Joi.number().min(-90).max(90).required(),
+    lng: Joi.number().min(-180).max(180).required()
+  }).required(),
   
   address: Joi.object({
     street: Joi.string().max(500).optional(),
@@ -193,11 +193,44 @@ const registerHospitalSchema = Joi.object({
     }).optional()
   }).optional(),
 
-  specialties: Joi.array().items(Joi.string()).optional().default([]),
+  // FIXED: Accept both string array and object array for specialists
+  // specialties: Joi.alternatives().try(
+  //   Joi.array().items(Joi.string()),
+  //   Joi.array().items(
+  //     Joi.object({
+  //       specialization: Joi.string().valid(
+  //         'Cardiologist',
+  //         'Neurologist',
+  //         'Orthopedic',
+  //         'Traumatologist',
+  //         'General Surgeon',
+  //         'Pediatrician',
+  //         'Pulmonologist',
+  //         'Nephrologist',
+  //         'Emergency Medicine'
+  //       ).required(),
+  //       name: Joi.string().min(2).max(100).required(),
+  //       isAvailable: Joi.boolean().optional().default(true),
+  //       phone: phoneValidationOptional
+  //     })
+  //   )
+  // ).optional().default([]),
 
   type: Joi.string().valid('Government', 'Private', 'Charitable').optional().default('Private'),
 
-  emergencyPhone: Joi.string().optional()
+  emergencyPhone: phoneValidationOptional,
+
+  // ADDED: facilities validation
+  facilities: Joi.object({
+    oxygenAvailable: Joi.boolean().optional(),
+    ventilators: Joi.number().integer().min(0).optional(),
+    ambulanceService: Joi.boolean().optional(),
+    bloodBank: Joi.boolean().optional(),
+    pharmacy24x7: Joi.boolean().optional(),
+    emergencyRoom: Joi.boolean().optional(),
+    operationTheater: Joi.boolean().optional()
+  }).optional()
+
 }).unknown(true);
 
 const updateHospitalBedsSchema = Joi.object({

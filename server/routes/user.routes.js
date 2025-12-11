@@ -21,7 +21,8 @@ const {
   uploadProfilePicture,
   deleteAccount,
   getUserStats,
-  getEmergencyContacts
+  getEmergencyContacts,
+  getLocation
 } = require('../controllers/userController.js');
 
 const router = express.Router();
@@ -184,5 +185,7 @@ router.put(
   sanitizeInput,
   updateLocation
 );
+
+router.get('/location', authenticate, userOnly, getLocation);
 
 module.exports = router;

@@ -158,7 +158,32 @@ async function updateUserProfile(req, res) {
 async function updateLocation(req, res) {
   try {
     const userId = req.user.id;
-    const { lat, lng, address } = req.body.location || req.body;
+    
+    const locationData = req.body.location || req.body;
+    const { lat, lng, address } = locationData;
+
+    // Validate coordinates
+    if (lat === undefined || lng === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Latitude and longitude are required'
+      });
+    }
+
+    // Validate coordinate ranges
+    if (lat < -90 || lat > 90) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid latitude. Must be between -90 and 90'
+      });
+    }
+
+    if (lng < -180 || lng > 180) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid longitude. Must be between -180 and 180'
+      });
+    }
 
     const user = await User.findById(userId);
 
@@ -169,13 +194,18 @@ async function updateLocation(req, res) {
     user.updateLocation(lng, lat, address);
     await user.save();
 
-    logger.debug(`Location updated for user ${userId}`);
+    logger.debug(`Location updated for user ${userId}: [${lng}, ${lat}]`);
 
     res.status(200).json({
       success: true,
       message: 'Location updated successfully',
       data: {
-        location: user.currentLocation
+        location: {
+          type: user.currentLocation.type,
+          coordinates: user.currentLocation.coordinates,
+          address: user.currentLocation.address,
+          lastUpdated: user.currentLocation.lastUpdated
+        }
       }
     });
 
@@ -550,6 +580,42 @@ async function deleteAccount(req, res) {
   }
 };
 
+async function getLocation(req, res) {
+  try {
+    const userId = req.user.id;
+    console.log("Hello");
+    const user = await User.findById(userId).select('currentLocation');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        location: user.currentLocation,
+        formatted: {
+          latitude: user.currentLocation.coordinates[1],
+          longitude: user.currentLocation.coordinates[0],
+          address: user.currentLocation.address,
+          lastUpdated: user.currentLocation.lastUpdated
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error('Get location error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch location',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createUser,
   getUserProfile,
@@ -562,5 +628,6 @@ module.exports = {
   updateHealthProfile,
   uploadProfilePicture,
   getUserStats,
-  deleteAccount
+  deleteAccount,
+  getLocation
 }

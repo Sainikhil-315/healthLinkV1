@@ -54,7 +54,25 @@ const FindHospitalsScreen = ({ navigation }) => {
       });
 
       if (result.success) {
-        setHospitals(result.data.hospitals || []);
+        const hospitalsList = result.data.hospitals || [];
+        hospitalsList.forEach(hospital => {
+          if (hospital.location && hospital.location.coordinates) {
+            const userLat = currentLocation.lat;
+            const userLng = currentLocation.lng;
+            const hospLat = hospital.location.coordinates[1];
+            const hospLng = hospital.location.coordinates[0];
+            // Haversine formula
+            const toRad = (value) => value * Math.PI / 180;
+            const R = 6371;
+            const dLat = toRad(hospLat - userLat);
+            const dLng = toRad(hospLng - userLng);
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(toRad(userLat)) * Math.cos(toRad(hospLat)) * Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distance = R * c;
+            console.log(`[HOSPITAL DISTANCE] User (${userLat},${userLng}) <-> Hospital (${hospLat},${hospLng}): ${distance.toFixed(2)} km`);
+          }
+        });
+        setHospitals(hospitalsList);
       } else {
         Toast.show({
           type: 'error',

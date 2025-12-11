@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from '../services/api';
 import socketService from '../services/socketService';
+import locationService from '../services/locationService';
 import { STORAGE_KEYS } from '../utils/constants';
 
 const useAuthStore = create((set, get) => ({
@@ -21,6 +22,7 @@ const useAuthStore = create((set, get) => ({
       const response = await apiService.login(credentials);
       const { user, token, refreshToken } = response.data;
       console.log('Login response:', response);
+      
       // Save to AsyncStorage with error handling
       try {
         await AsyncStorage.multiSet([
@@ -45,6 +47,17 @@ const useAuthStore = create((set, get) => ({
         await socketService.connect();
       } catch (socketError) {
         console.warn('Socket connection error:', socketError);
+      }
+
+      // 🔥 GET AND UPDATE LOCATION IMMEDIATELY AFTER LOGIN
+      try {
+        const location = await locationService.getCurrentLocation();
+        if (location) {
+          await apiService.updateLocation(location);
+          console.log('✅ Location updated after login:', location);
+        }
+      } catch (locationError) {
+        console.warn('Failed to update location after login:', locationError);
       }
 
       return { success: true };
@@ -95,6 +108,17 @@ const useAuthStore = create((set, get) => ({
         console.warn('Socket connection error:', socketError);
       }
 
+      // 🔥 GET AND UPDATE LOCATION IMMEDIATELY AFTER REGISTRATION
+      try {
+        const location = await locationService.getCurrentLocation();
+        if (location) {
+          await apiService.updateLocation(location);
+          console.log('✅ Location updated after registration:', location);
+        }
+      } catch (locationError) {
+        console.warn('Failed to update location after registration:', locationError);
+      }
+
       return { success: true };
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Registration failed';
@@ -109,6 +133,9 @@ const useAuthStore = create((set, get) => ({
     } catch (error) {
       console.log('Logout API error:', error);
     } finally {
+      // Stop location tracking
+      locationService.stopTracking();
+
       // Clear storage with error handling
       try {
         await AsyncStorage.multiRemove([
@@ -188,11 +215,22 @@ const useAuthStore = create((set, get) => ({
             console.warn('Socket connection error:', socketError);
           }
 
+          // 🔥 UPDATE LOCATION ON APP RESTART
+          try {
+            const location = await locationService.getCurrentLocation();
+            if (location) {
+              await apiService.updateLocation(location);
+              console.log('✅ Location updated on app restart:', location);
+            }
+          } catch (locationError) {
+            console.warn('Failed to update location on restart:', locationError);
+          }
+
           // Refresh user data to ensure it's current
           try {
-            const response = await apiService.get('/user/profile');
-            if (response?.data?.success && response.data.data?.user) {
-              set({ user: response.data.data.user });
+            const response = await apiService.getCurrentUser();
+            if (response?.data) {
+              set({ user: response.data });
             }
           } catch (error) {
             console.log('Failed to refresh user data:', error);

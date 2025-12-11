@@ -14,10 +14,10 @@ export const USER_ROLES = {
 
 // Emergency Severity Levels
 export const SEVERITY_LEVELS = {
-  CRITICAL: 'CRITICAL',
-  HIGH: 'HIGH',
-  MEDIUM: 'MEDIUM',
-  LOW: 'LOW'
+  CRITICAL: 'critical',
+  HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low'
 };
 
 // Emergency Types

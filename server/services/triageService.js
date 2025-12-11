@@ -156,7 +156,7 @@ function generateActionPlan(severity, triageData) {
     dispatchVolunteer: shouldDispatchVolunteer(severity, triageData),
     requestBloodDonor: shouldRequestBloodDonor(severity, triageData),
     ambulanceTypes: getRequiredAmbulanceType(severity),
-    specialties: getRecommendedSpecialties(triageData),
+    // specialties: getRecommendedSpecialties(triageData),
     priority: getResponsePriority(severity),
     estimatedResponseTime: severity === SEVERITY_LEVELS.CRITICAL ? 5 : 
                            severity === SEVERITY_LEVELS.HIGH ? 8 : 12
@@ -190,7 +190,7 @@ module.exports = {
   getRequiredAmbulanceType,
   shouldDispatchVolunteer,
   shouldRequestBloodDonor,
-  getRecommendedSpecialties,
+  // getRecommendedSpecialties,
   getResponsePriority,
   generateActionPlan,
   validateTriageData
