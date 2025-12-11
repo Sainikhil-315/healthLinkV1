@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 import HospitalDashboardScreen from '../screens/Hospital/HospitalDashboardScreen';
+import HospitalEditProfileScreen from '../screens/Hospital/HospitalEditProfileScreen';
 import IncomingAlertsScreen from '../screens/Hospital/IncomingAlertsScreen';
 import PatientHistoryScreen from '../screens/Hospital/PatientHistoryScreen';
 import HospitalSettingsScreen from '../screens/Hospital/HospitalSettingsScreen';
@@ -14,6 +15,7 @@ const Stack = createStackNavigator();
 const DashboardStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="Dashboard" component={HospitalDashboardScreen} />
+    <Stack.Screen name="EditProfile" component={HospitalEditProfileScreen} />
   </Stack.Navigator>
 );
 

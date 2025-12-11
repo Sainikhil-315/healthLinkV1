@@ -17,10 +17,10 @@ const useAuthStore = create((set, get) => ({
   login: async credentials => {
     try {
       set({ isLoading: true, error: null });
-
+      console.log('Logging in with credentials:', credentials);
       const response = await apiService.login(credentials);
       const { user, token, refreshToken } = response.data;
-
+      console.log('Login response:', response);
       // Save to AsyncStorage with error handling
       try {
         await AsyncStorage.multiSet([

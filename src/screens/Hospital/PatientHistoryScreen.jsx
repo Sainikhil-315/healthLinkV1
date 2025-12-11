@@ -44,11 +44,9 @@ const PatientHistoryScreen = () => {
       }
 
       // Fetch from backend with date filter
-      const result = await apiService.get('/hospital/patient-history', {
-        params: {
-          startDate: startDate.toISOString(),
-          endDate: now.toISOString()
-        }
+      const result = await apiService.getPatientHistory({
+        startDate: startDate.toISOString(),
+        endDate: now.toISOString()
       });
 
       if (result?.data?.success) {
