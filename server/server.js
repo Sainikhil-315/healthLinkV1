@@ -1,4 +1,4 @@
-const express = require('express')
+const express = require('express');
 const { createServer } = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -40,17 +40,21 @@ const PORT = process.env.PORT || 5000;
 // ============================================
 
 // Security headers
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+);
 
 // CORS configuration
-app.use(cors({
-  origin: '*',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(
+  cors({
+    origin: '*',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }),
+);
 
 // Compression middleware
 app.use(compression());
@@ -76,7 +80,7 @@ app.get('/health', (req, res) => {
     success: true,
     message: 'HealthLink API is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
   });
 });
 
@@ -98,7 +102,7 @@ app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     message: 'Route not found',
-    path: req.originalUrl
+    path: req.originalUrl,
   });
 });
 
@@ -123,21 +127,20 @@ const startServer = async () => {
     initializeSocket(server);
     logger.info('Socket.IO initialized');
 
-    // Start HTTP server
-    server.listen(PORT, () => {
+    // Start HTTP server (bind to all interfaces so devices on the LAN can reach it)
+    server.listen(PORT, '0.0.0.0', () => {
       logger.info(`
 ╔════════════════════════════════════════════════╗
 ║                                                ║
 ║     🏥 HealthLink Server Running              ║
 ║                                                ║
-║     Environment: ${process.env.NODE_ENV?.toUpperCase().padEnd(29)}║
-║     Port: ${PORT.toString().padEnd(38)}        ║
-║     API: http://localhost:${PORT}${API_PREFIX.padEnd(17)}║
+    ║     Environment: ${process.env.NODE_ENV?.toUpperCase().padEnd(29)}║
+    ║     Port: ${PORT.toString().padEnd(38)}        ║
+    ║     API: http://localhost:${PORT}${API_PREFIX.padEnd(17)}║
 ║                                                ║
 ╚════════════════════════════════════════════════╝
       `);
     });
-
   } catch (error) {
     logger.error('Failed to start server:', error);
     process.exit(1);
@@ -145,7 +148,7 @@ const startServer = async () => {
 };
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
+process.on('unhandledRejection', err => {
   logger.error('UNHANDLED REJECTION! 💥 Shutting down...');
   logger.error(err.name, err.message);
   server.close(() => {

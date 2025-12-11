@@ -14,7 +14,7 @@ const useAuthStore = create((set, get) => ({
   error: null,
 
   // Actions
-  login: async (credentials) => {
+  login: async credentials => {
     try {
       set({ isLoading: true, error: null });
 
@@ -26,7 +26,7 @@ const useAuthStore = create((set, get) => ({
         await AsyncStorage.multiSet([
           [STORAGE_KEYS.AUTH_TOKEN, token],
           [STORAGE_KEYS.REFRESH_TOKEN, refreshToken],
-          [STORAGE_KEYS.USER_DATA, JSON.stringify(user)]
+          [STORAGE_KEYS.USER_DATA, JSON.stringify(user)],
         ]);
       } catch (storageError) {
         console.warn('Failed to save auth data to AsyncStorage:', storageError);
@@ -37,7 +37,7 @@ const useAuthStore = create((set, get) => ({
         token,
         refreshToken,
         isAuthenticated: true,
-        isLoading: false
+        isLoading: false,
       });
 
       // Connect socket
@@ -49,55 +49,12 @@ const useAuthStore = create((set, get) => ({
 
       return { success: true };
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Login failed';
-      set({ error: errorMessage, isLoading: false });
-      return { success: false, error: errorMessage };
-    }
-  },
-
-  register: async (userData) => {
-    try {
-      console.log('Registering user with data:', userData);
-      set({ isLoading: true, error: null });
-      
-      // Use different endpoint for hospital registration
-      let response;
-      if (userData.role === 'hospital') {
-        response = await apiService.registerHospital(userData);
-      } else {
-        response = await apiService.register(userData);
-      }
-      
-      console.log('Registration response:', response);
-      const { user, token, refreshToken } = response.data;
-
-      try {
-        await AsyncStorage.multiSet([
-          [STORAGE_KEYS.AUTH_TOKEN, token],
-          [STORAGE_KEYS.REFRESH_TOKEN, refreshToken],
-          [STORAGE_KEYS.USER_DATA, JSON.stringify(user)]
-        ]);
-      } catch (storageError) {
-        console.warn('Failed to save auth data to AsyncStorage:', storageError);
-      }
-
-      set({
-        user,
-        token,
-        refreshToken,
-        isAuthenticated: true,
-        isLoading: false
-      });
-
-      try {
-        await socketService.connect();
-      } catch (socketError) {
-        console.warn('Socket connection error:', socketError);
-      }
-
-      return { success: true };
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Registration failed';
+      console.error('Login error:', error);
+      const errorMessage =
+        error.userMessage ||
+        error.response?.data?.message ||
+        error.message ||
+        'Login failed';
       set({ error: errorMessage, isLoading: false });
       return { success: false, error: errorMessage };
     }
@@ -114,7 +71,7 @@ const useAuthStore = create((set, get) => ({
         await AsyncStorage.multiRemove([
           STORAGE_KEYS.AUTH_TOKEN,
           STORAGE_KEYS.REFRESH_TOKEN,
-          STORAGE_KEYS.USER_DATA
+          STORAGE_KEYS.USER_DATA,
         ]);
       } catch (storageError) {
         console.warn('Failed to clear AsyncStorage:', storageError);
@@ -132,7 +89,7 @@ const useAuthStore = create((set, get) => ({
         token: null,
         refreshToken: null,
         isAuthenticated: false,
-        error: null
+        error: null,
       });
     }
   },
@@ -150,9 +107,9 @@ const useAuthStore = create((set, get) => ({
         const data = await AsyncStorage.multiGet([
           STORAGE_KEYS.AUTH_TOKEN,
           STORAGE_KEYS.REFRESH_TOKEN,
-          STORAGE_KEYS.USER_DATA
+          STORAGE_KEYS.USER_DATA,
         ]);
-        
+
         if (data && data.length === 3) {
           token = data[0][1];
           refreshToken = data[1][1];
@@ -165,7 +122,7 @@ const useAuthStore = create((set, get) => ({
       if (token && userData) {
         try {
           const user = JSON.parse(userData);
-          
+
           // Verify user has a valid role
           if (!user || !user.role) {
             console.warn('Invalid user data - no role found');
@@ -178,7 +135,7 @@ const useAuthStore = create((set, get) => ({
             token,
             refreshToken,
             isAuthenticated: true,
-            isLoading: false
+            isLoading: false,
           });
 
           // Reconnect socket
@@ -216,13 +173,13 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  updateUser: (userData) => {
+  updateUser: userData => {
     set({ user: { ...get().user, ...userData } });
   },
 
-  setError: (error) => set({ error }),
+  setError: error => set({ error }),
 
-  clearError: () => set({ error: null })
+  clearError: () => set({ error: null }),
 }));
 
 export default useAuthStore;
