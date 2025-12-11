@@ -77,11 +77,11 @@ const FindHospitalsScreen = ({ navigation }) => {
                 Math.sin(dLng / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             const distance = R * c;
-            console.log(
-              `[HOSPITAL DISTANCE] User (${userLat},${userLng}) <-> Hospital (${hospLat},${hospLng}): ${distance.toFixed(
-                2,
-              )} km`,
-            );
+            hospital.distance = distance; // <-- Assign distance to hospital object
+            // Optionally log for debug
+            console.log(`[HOSPITAL DISTANCE] User (${userLat},${userLng}) <-> Hospital (${hospLat},${hospLng}): ${distance.toFixed(2)} km`);
+          } else {
+            hospital.distance = null;
           }
         });
         setHospitals(hospitalsList);
@@ -222,9 +222,19 @@ const FindHospitalsScreen = ({ navigation }) => {
   };
 
   const renderHospitalItem = ({ item }) => {
+    console.log('[HOSPITAL ITEM]', item);
     const beds = calculateTotalBeds(item.bedAvailability);
     const percentage = beds.total > 0 ? (beds.available / beds.total) * 100 : 0;
 
+    // Format distance: < 1km in meters, else in km
+    let distanceDisplay = 'Distance unavailable';
+    if (typeof item.distance === 'number') {
+      if (item.distance < 1) {
+        distanceDisplay = `${Math.round(item.distance * 1000)}m away`;
+      } else {
+        distanceDisplay = `${item.distance.toFixed(1)}km away`;
+      }
+    }
     return (
       <Card style={styles.hospitalCard}>
         <View style={styles.hospitalHeader}>
@@ -241,11 +251,7 @@ const FindHospitalsScreen = ({ navigation }) => {
             <Text style={styles.hospitalType}>{item.type} Hospital</Text>
             <View style={styles.distanceRow}>
               <Icon name="navigate" size={14} color={COLORS.textSecondary} />
-              <Text style={styles.distance}>
-                {item.distance
-                  ? `${item.distance.toFixed(1)}km away`
-                  : 'Distance unavailable'}
-              </Text>
+              <Text style={styles.distance}>{distanceDisplay}</Text>
             </View>
           </View>
         </View>

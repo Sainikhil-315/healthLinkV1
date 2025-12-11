@@ -71,7 +71,7 @@ const BLOOD_COMPATIBILITY = {
 // Volunteer Status
 const VOLUNTEER_STATUS = {
   PENDING: 'pending',       // Awaiting verification
-  VERIFIED: 'verified',     // Approved by admin
+  VERIFIED: 'approved',     // Approved by admin
   AVAILABLE: 'available',   // Ready to respond
   BUSY: 'busy',             // Currently on a case
   OFF_DUTY: 'off_duty',     // Not available

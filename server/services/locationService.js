@@ -142,7 +142,7 @@ function findNearestVolunteers(origin, volunteers, maxDistance = 5, limit = 5) {
   const available = volunteers.filter(vol =>
     vol.status === 'available' &&
     vol.isActive &&
-    vol.verificationStatus === 'verified' &&
+    vol.verificationStatus === 'approved' &&
     vol.certification?.isVerified &&
     new Date(vol.certification?.expiryDate) > new Date()
   );

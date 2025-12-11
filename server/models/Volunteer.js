@@ -158,7 +158,7 @@ const volunteerSchema = new mongoose.Schema({
   // Verification Status
   verificationStatus: {
     type: String,
-    enum: ['pending', 'verified', 'rejected'],
+    enum: ['pending', 'approved', 'rejected'],
     default: 'pending'
   },
   
@@ -296,7 +296,7 @@ volunteerSchema.methods.updateLocation = function(longitude, latitude, address) 
 volunteerSchema.methods.isAvailableForMission = function() {
   return this.status === 'available' && 
          this.isActive && 
-         this.verificationStatus === 'verified' &&
+         this.verificationStatus === 'approved' &&
          !this.currentMission &&
          this.certification.isVerified &&
          new Date(this.certification.expiryDate) > new Date();
@@ -388,7 +388,7 @@ volunteerSchema.methods.verifyCertification = function(adminId) {
   this.certification.isVerified = true;
   this.certification.verifiedBy = adminId;
   this.certification.verifiedAt = Date.now();
-  this.verificationStatus = 'verified';
+  this.verificationStatus = 'approved';
 };
 
 // Reject certification

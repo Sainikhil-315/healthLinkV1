@@ -511,15 +511,20 @@ async function getAllVolunteers(req, res) {
     const { page = 1, limit = 20, status } = req.query;
 
     const query = {};
-    if (status) query.verificationStatus = status;
+    
+    if (status) {
+      query.volunteerStatus = status;
+    } else {
+      query.volunteerStatus = { $in: ['pending', 'approved', 'rejected'] };
+    }
 
-    const volunteers = await Volunteer.find(query)
+    const volunteers = await User.find(query)
       .select('-password')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    const total = await Volunteer.countDocuments(query);
+    const total = await User.countDocuments(query);
 
     res.status(200).json({
       success: true,
@@ -537,7 +542,7 @@ async function getAllVolunteers(req, res) {
       error: error.message
     });
   }
-};
+}
 
 /**
  * @desc    Verify volunteer (approve certification)
@@ -549,7 +554,7 @@ async function verifyVolunteer(req, res) {
     const { id } = req.params;
     const adminId = req.user.id;
 
-    const volunteer = await Volunteer.findById(id);
+    const volunteer = await User.findById(id);
 
     if (!volunteer) {
       return res.status(404).json({
@@ -558,7 +563,8 @@ async function verifyVolunteer(req, res) {
       });
     }
 
-    volunteer.verifyCertification(adminId);
+    // volunteer.verifyCertification(adminId);
+    volunteer.volunteerStatus = 'approved';
     await volunteer.save();
 
     // Send approval email

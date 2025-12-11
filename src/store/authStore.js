@@ -298,11 +298,12 @@ const useAuthStore = create((set, get) => ({
           set(state => ({
             user: {
               ...state.user,
-              isVolunteer: false,
+              isVolunteer: true,
               volunteerStatus: 'pending',
             },
             isLoading: false,
           }));
+          return { success: true };
         }
       } else {
         set({ error: response.message, isLoading: false });

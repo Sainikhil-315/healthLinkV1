@@ -27,6 +27,7 @@ const {
   getEmergencyContacts,
   getLocation,
   becomeDonor,
+  becomeVolunteer
 } = require('../controllers/userController.js');
 
 const router = express.Router();
@@ -174,5 +175,12 @@ router.get('/location', authenticate, userOnly, getLocation);
  * @access  Private
  */
 router.put('/become-donor', authenticate, becomeDonor);
+
+/**
+ * @route   PUT /api/v1/users/become-volunteer
+ * @desc    Become a volunteer
+ * @access  Private
+ */
+router.put('/become-volunteer', authenticate, becomeVolunteer);
 
 module.exports = router;
