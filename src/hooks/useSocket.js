@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import socketService from '../services/socketService';
 import useAuthStore from '../store/authStore';
+import useSocketStore from '../store/socketStore'; // ✅ Import socket store
 
 export default function useSocket() {
   const { isAuthenticated } = useAuthStore();
+  const { isConnected } = useSocketStore(); // ✅ Get isConnected from store
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -38,6 +40,6 @@ export default function useSocket() {
     off,
     joinIncidentRoom,
     leaveIncidentRoom,
-    isConnected: socketService.isConnected()
+    isConnected // ✅ Return the boolean value directly from store
   };
 }

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { COLORS } from '../../utils/constants';
 import { apiService } from '../../services/api';
+import useAuthStore from '../../store/authStore';
 import AdminStatsCard from '../../components/admin/AdminStatsCard';
 import AdminEmergencyAlert from '../../components/admin/AdminEmergencyAlert';
 import Loader from '../../components/common/Loader';
@@ -12,6 +13,7 @@ const AdminDashboardScreen = ({ navigation }) => {
   const [activeIncidents, setActiveIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const logout = useAuthStore((state) => state.logout);
 
   useEffect(() => {
     loadDashboardData();
@@ -46,6 +48,17 @@ const AdminDashboardScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
+    await logout();
+  };
+
   if (loading) {
     return <Loader fullScreen message="Loading dashboard..." />;
   }
@@ -58,16 +71,25 @@ const AdminDashboardScreen = ({ navigation }) => {
           <Text style={styles.greeting}>Admin Panel</Text>
           <Text style={styles.title}>HealthLink Dashboard</Text>
         </View>
-        <TouchableOpacity style={styles.notificationButton}>
-          <Icon name="notifications-outline" size={24} color={COLORS.text} />
-          {stats?.verification?.ambulances + stats?.verification?.hospitals + stats?.verification?.volunteers > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {stats.verification.ambulances + stats.verification.hospitals + stats.verification.volunteers}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.notificationButton}>
+            <Icon name="notifications-outline" size={24} color={COLORS.text} />
+            {stats?.verification?.ambulances + stats?.verification?.hospitals + stats?.verification?.volunteers > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {stats.verification.ambulances + stats.verification.hospitals + stats.verification.volunteers}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Icon name="log-out-outline" size={24} color={COLORS.error} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -202,6 +224,44 @@ const AdminDashboardScreen = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.logoutModal}>
+            <View style={styles.modalIconContainer}>
+              <Icon name="log-out" size={48} color={COLORS.error} />
+            </View>
+            
+            <Text style={styles.modalTitle}>Logout?</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to logout from your admin account?
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.logoutConfirmButton]}
+                onPress={confirmLogout}
+              >
+                <Icon name="log-out-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.logoutButtonText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -217,9 +277,19 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     backgroundColor: COLORS.background
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
   greeting: { fontSize: 14, color: COLORS.textSecondary },
   title: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, marginTop: 2 },
   notificationButton: { position: 'relative', padding: 8 },
+  logoutButton: { 
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: COLORS.error + '15'
+  },
   badge: {
     position: 'absolute',
     top: 4,
@@ -275,6 +345,80 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginTop: 8,
     textAlign: 'center'
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20
+  },
+  logoutModal: {
+    backgroundColor: COLORS.background,
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.error + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 12
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 28,
+    lineHeight: 22
+  },
+  modalActions: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12
+  },
+  modalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 6
+  },
+  cancelButton: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1.5,
+    borderColor: COLORS.border
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text
+  },
+  logoutConfirmButton: {
+    backgroundColor: COLORS.error
+  },
+  logoutButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF'
   }
 });
 

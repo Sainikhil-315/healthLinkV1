@@ -45,8 +45,8 @@ const LoginScreen = ({ navigation }) => {
   const handleLogin = async () => {
     if (!validate()) return;
 
+    console.log('Logging in with:', { email, password });
     const result = await login({ email, password });
-
     if (result.success) {
       // Check if first time login - navigate to permissions
       const hasSeenPermissions = await AsyncStorage.getItem(

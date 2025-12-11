@@ -197,6 +197,22 @@ async function updateHospitalProfile(req, res) {
     if (updates.facilities) hospital.facilities = { ...hospital.facilities, ...updates.facilities };
     if (updates.acceptingEmergencies !== undefined) hospital.acceptingEmergencies = updates.acceptingEmergencies;
 
+    // Address/location updates
+    if (updates.address || updates.location) {
+      // If address is provided, update address fields
+      if (!hospital.location) hospital.location = {};
+      if (updates.address) {
+        hospital.location.address = updates.address.street || hospital.location.address;
+        hospital.location.city = updates.address.city || hospital.location.city;
+        hospital.location.state = updates.address.state || hospital.location.state;
+        hospital.location.pincode = updates.address.pincode || hospital.location.pincode;
+      }
+      // If location coordinates are provided, update them
+      if (updates.location && updates.location.lat && updates.location.lng) {
+        hospital.location.coordinates = [parseFloat(updates.location.lng), parseFloat(updates.location.lat)];
+      }
+    }
+
     await hospital.save();
 
     logger.info(`Hospital profile updated: ${hospitalId}`);
@@ -542,9 +558,9 @@ async function getHospitalStats(req, res) {
  */
 async function getPatientHistory(req, res) {
   try {
+    console.log('Fetching patient history for hospital:', hospitalId, 'from', startDate, 'to', endDate);
     const hospitalId = req.user?.id;
     const { startDate, endDate } = req.query;
-
     if (!hospitalId) {
       return res.status(401).json(createError(HOSPITAL_ERRORS.HOSPITAL_NOT_FOUND));
     }
@@ -557,7 +573,6 @@ async function getPatientHistory(req, res) {
     if (endDate) {
       dateFilter.$lte = new Date(endDate);
     }
-
     // Find incidents for this hospital
     const incidents = await Incident.find({
       hospitalId: hospitalId,

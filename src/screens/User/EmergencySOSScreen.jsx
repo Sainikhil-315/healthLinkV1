@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
-  ScrollView
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Toast from 'react-native-toast-message';
@@ -14,14 +14,19 @@ import Toast from 'react-native-toast-message';
 import Button from '../../components/common/Button';
 import useEmergencyStore from '../../store/emergencyStore';
 import locationService from '../../services/locationService';
-import { COLORS, EMERGENCY_TYPES, TRIAGE_QUESTIONS, SCREENS } from '../../utils/constants';
+import {
+  COLORS,
+  EMERGENCY_TYPES,
+  TRIAGE_QUESTIONS,
+  SCREENS,
+} from '../../utils/constants';
 
 const EmergencySOSScreen = ({ navigation }) => {
   const [emergencyType, setEmergencyType] = useState(null);
   const [showTriageModal, setShowTriageModal] = useState(false);
   const [triageAnswers, setTriageAnswers] = useState({});
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  
+
   const { createEmergency, isCreating, activeEmergency } = useEmergencyStore();
 
   useEffect(() => {
@@ -36,8 +41,11 @@ const EmergencySOSScreen = ({ navigation }) => {
       'Are you sure you need immediate medical assistance?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Yes, I need help', onPress: () => triggerEmergency(EMERGENCY_TYPES.SELF) }
-      ]
+        {
+          text: 'Yes, I need help',
+          onPress: () => triggerEmergency(EMERGENCY_TYPES.SELF),
+        },
+      ],
     );
   };
 
@@ -52,16 +60,23 @@ const EmergencySOSScreen = ({ navigation }) => {
 
       // Get current location
       const location = await locationService.getCurrentLocation();
-      const address = await locationService.getAddressFromCoords(location.lat, location.lng);
+      const address = await locationService.getAddressFromCoords(
+        location.lat,
+        location.lng,
+      );
 
       const emergencyData = {
         type,
         location,
-        address: address?.formattedAddress || 'Unknown location'
+        address: address?.formattedAddress || 'Unknown location',
       };
 
       if (type === EMERGENCY_TYPES.BYSTANDER && triage) {
-        emergencyData.triageAnswers = triage;
+        emergencyData.triage = {
+          isConscious: triage.conscious,
+          isBreathing: triage.breathing,
+          isBleeding: triage.bleeding,
+        };
       }
 
       setIsGettingLocation(false);
@@ -72,14 +87,14 @@ const EmergencySOSScreen = ({ navigation }) => {
         Toast.show({
           type: 'success',
           text1: '🚨 Emergency Alert Sent',
-          text2: 'Ambulance is being dispatched'
+          text2: 'Ambulance is being dispatched',
         });
         navigation.navigate(SCREENS.TRACK_AMBULANCE);
       } else {
         Toast.show({
           type: 'error',
           text1: 'Failed to create emergency',
-          text2: result.error
+          text2: result.error,
         });
       }
     } catch (error) {
@@ -90,8 +105,8 @@ const EmergencySOSScreen = ({ navigation }) => {
   };
 
   const handleTriageSubmit = () => {
-    const allAnswered = TRIAGE_QUESTIONS.every(q => 
-      triageAnswers.hasOwnProperty(q.id)
+    const allAnswered = TRIAGE_QUESTIONS.every(q =>
+      triageAnswers.hasOwnProperty(q.id),
     );
 
     if (!allAnswered) {
@@ -124,21 +139,30 @@ const EmergencySOSScreen = ({ navigation }) => {
               Answer these questions about the victim:
             </Text>
 
-            {TRIAGE_QUESTIONS.map((question) => (
+            {TRIAGE_QUESTIONS.map(question => (
               <View key={question.id} style={styles.questionContainer}>
                 <Text style={styles.questionText}>{question.question}</Text>
                 <View style={styles.answerButtons}>
                   <TouchableOpacity
                     style={[
                       styles.answerButton,
-                      triageAnswers[question.id] === true && styles.answerButtonSelected
+                      triageAnswers[question.id] === true &&
+                        styles.answerButtonSelected,
                     ]}
-                    onPress={() => setTriageAnswers(prev => ({ ...prev, [question.id]: true }))}
+                    onPress={() =>
+                      setTriageAnswers(prev => ({
+                        ...prev,
+                        [question.id]: true,
+                      }))
+                    }
                   >
-                    <Text style={[
-                      styles.answerButtonText,
-                      triageAnswers[question.id] === true && styles.answerButtonTextSelected
-                    ]}>
+                    <Text
+                      style={[
+                        styles.answerButtonText,
+                        triageAnswers[question.id] === true &&
+                          styles.answerButtonTextSelected,
+                      ]}
+                    >
                       Yes
                     </Text>
                   </TouchableOpacity>
@@ -146,14 +170,23 @@ const EmergencySOSScreen = ({ navigation }) => {
                   <TouchableOpacity
                     style={[
                       styles.answerButton,
-                      triageAnswers[question.id] === false && styles.answerButtonSelected
+                      triageAnswers[question.id] === false &&
+                        styles.answerButtonSelected,
                     ]}
-                    onPress={() => setTriageAnswers(prev => ({ ...prev, [question.id]: false }))}
+                    onPress={() =>
+                      setTriageAnswers(prev => ({
+                        ...prev,
+                        [question.id]: false,
+                      }))
+                    }
                   >
-                    <Text style={[
-                      styles.answerButtonText,
-                      triageAnswers[question.id] === false && styles.answerButtonTextSelected
-                    ]}>
+                    <Text
+                      style={[
+                        styles.answerButtonText,
+                        triageAnswers[question.id] === false &&
+                          styles.answerButtonTextSelected,
+                      ]}
+                    >
                       No
                     </Text>
                   </TouchableOpacity>
@@ -198,7 +231,12 @@ const EmergencySOSScreen = ({ navigation }) => {
           onPress={handleSelfEmergency}
           disabled={isCreating || isGettingLocation}
         >
-          <View style={[styles.emergencyIcon, { backgroundColor: COLORS.primary + '20' }]}>
+          <View
+            style={[
+              styles.emergencyIcon,
+              { backgroundColor: COLORS.primary + '20' },
+            ]}
+          >
             <Icon name="person" size={48} color={COLORS.primary} />
           </View>
           <Text style={styles.emergencyTitle}>I Need Help</Text>
@@ -213,7 +251,12 @@ const EmergencySOSScreen = ({ navigation }) => {
           onPress={handleBystanderEmergency}
           disabled={isCreating || isGettingLocation}
         >
-          <View style={[styles.emergencyIcon, { backgroundColor: COLORS.warning + '20' }]}>
+          <View
+            style={[
+              styles.emergencyIcon,
+              { backgroundColor: COLORS.warning + '20' },
+            ]}
+          >
             <Icon name="people" size={48} color={COLORS.warning} />
           </View>
           <Text style={styles.emergencyTitle}>Report Emergency</Text>
@@ -224,8 +267,10 @@ const EmergencySOSScreen = ({ navigation }) => {
 
         {/* Quick Emergency Contacts */}
         <View style={styles.quickContacts}>
-          <Text style={styles.quickContactsTitle}>Quick Emergency Contacts</Text>
-          
+          <Text style={styles.quickContactsTitle}>
+            Quick Emergency Contacts
+          </Text>
+
           <TouchableOpacity style={styles.contactButton}>
             <Icon name="call" size={24} color={COLORS.primary} />
             <Text style={styles.contactText}>Call 108 (Ambulance)</Text>
@@ -251,7 +296,7 @@ const EmergencySOSScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -259,15 +304,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 20
+    paddingBottom: 20,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.text
+    color: COLORS.text,
   },
   content: {
-    padding: 20
+    padding: 20,
   },
   warningBox: {
     flexDirection: 'row',
@@ -275,14 +320,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.warning + '20',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24
+    marginBottom: 24,
   },
   warningText: {
     flex: 1,
     marginLeft: 12,
     fontSize: 14,
     color: COLORS.text,
-    lineHeight: 20
+    lineHeight: 20,
   },
   emergencyCard: {
     backgroundColor: COLORS.surface,
@@ -290,7 +335,7 @@ const styles = StyleSheet.create({
     padding: 32,
     alignItems: 'center',
     marginBottom: 16,
-    elevation: 2
+    elevation: 2,
   },
   emergencyIcon: {
     width: 96,
@@ -298,27 +343,27 @@ const styles = StyleSheet.create({
     borderRadius: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16
+    marginBottom: 16,
   },
   emergencyTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 8
+    marginBottom: 8,
   },
   emergencyDescription: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   quickContacts: {
-    marginTop: 24
+    marginTop: 24,
   },
   quickContactsTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 16
+    marginBottom: 16,
   },
   contactButton: {
     flexDirection: 'row',
@@ -326,24 +371,24 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12
+    marginBottom: 12,
   },
   contactText: {
     fontSize: 16,
     color: COLORS.text,
     marginLeft: 16,
-    fontWeight: '600'
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end'
+    justifyContent: 'flex-end',
   },
   modalContainer: {
     backgroundColor: COLORS.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '80%'
+    maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -351,33 +396,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border
+    borderBottomColor: COLORS.border,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.text
+    color: COLORS.text,
   },
   modalContent: {
-    padding: 20
+    padding: 20,
   },
   modalSubtitle: {
     fontSize: 16,
     color: COLORS.textSecondary,
-    marginBottom: 24
+    marginBottom: 24,
   },
   questionContainer: {
-    marginBottom: 24
+    marginBottom: 24,
   },
   questionText: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: 12
+    marginBottom: 12,
   },
   answerButtons: {
     flexDirection: 'row',
-    gap: 12
+    gap: 12,
   },
   answerButton: {
     flex: 1,
@@ -385,23 +430,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: COLORS.border,
-    alignItems: 'center'
+    alignItems: 'center',
   },
   answerButtonSelected: {
     backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary
+    borderColor: COLORS.primary,
   },
   answerButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text
+    color: COLORS.text,
   },
   answerButtonTextSelected: {
-    color: '#FFFFFF'
+    color: '#FFFFFF',
   },
   submitButton: {
-    marginTop: 8
-  }
+    marginTop: 8,
+  },
 });
 
 export default EmergencySOSScreen;

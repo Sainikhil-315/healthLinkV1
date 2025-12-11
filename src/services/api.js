@@ -123,6 +123,7 @@ export const apiService = {
   getAvailableHospitals: (location) => api.get('/hospitals/available/nearby', { params: location }),
   searchHospitals: (query) => api.get('/hospitals/search', { params: query }),
   getHospitalStats: () => api.get('/hospitals/stats'),
+  getPatientHistory: (params) => api.get('/hospitals/patient-history', { params }),
 
   // Ambulance
   registerAmbulance: (data) => api.post('/ambulances/register', data),

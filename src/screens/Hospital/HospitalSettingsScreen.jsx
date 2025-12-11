@@ -97,7 +97,7 @@ const HospitalSettingsScreen = ({ navigation }) => {
         
         <TouchableOpacity 
           style={styles.settingCard}
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => navigation.navigate('EditProfile')}
         >
           <View style={styles.settingLeft}>
             <Icon name="person-outline" size={24} color={COLORS.primary} />
