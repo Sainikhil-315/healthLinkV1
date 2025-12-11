@@ -1,6 +1,6 @@
 // API Configuration
-export const API_URL = 'http://10.125.40.129:5000/api/v1';
-export const SOCKET_URL = 'http://10.125.40.129:5000';
+export const API_URL = 'http://10.254.57.6:5000/api/v1';
+export const SOCKET_URL = 'http://10.254.57.6:5000';
 
 // User Roles
 export const USER_ROLES = {

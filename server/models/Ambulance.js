@@ -2,6 +2,13 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 const ambulanceSchema = new mongoose.Schema({
+  // Role for authentication/authorization
+  role: {
+    type: String,
+    enum: ['ambulance'],
+    default: 'ambulance',
+    required: true
+  },
   // Basic Info
   vehicleNumber: {
     type: String,
@@ -11,7 +18,7 @@ const ambulanceSchema = new mongoose.Schema({
     trim: true,
     match: [/^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$/, 'Invalid vehicle number format']
   },
-  
+
   // Driver Info
   driver: {
     name: {
@@ -44,14 +51,14 @@ const ambulanceSchema = new mongoose.Schema({
     },
     photo: String // Cloudinary URL
   },
-  
+
   password: {
     type: String,
     required: [true, 'Password is required'],
     minlength: 8,
     select: false
   },
-  
+
   // Ambulance Type
   type: {
     type: String,
@@ -59,7 +66,7 @@ const ambulanceSchema = new mongoose.Schema({
     enum: ['Basic', 'ALS', 'Cardiac', 'Neonatal'],
     default: 'Basic'
   },
-  
+
   // Equipment
   equipment: {
     oxygen: { type: Boolean, default: true },
@@ -70,7 +77,7 @@ const ambulanceSchema = new mongoose.Schema({
     firstAidKit: { type: Boolean, default: true },
     fireExtinguisher: { type: Boolean, default: true }
   },
-  
+
   // Location (Real-time, also stored in Redis)
   currentLocation: {
     type: {
@@ -88,38 +95,38 @@ const ambulanceSchema = new mongoose.Schema({
       default: Date.now
     }
   },
-  
+
   // Base Hospital
   baseHospital: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Hospital',
-    required: true
+    required: false
   },
-  
+
   // Status
   status: {
     type: String,
     enum: ['available', 'on_duty', 'offline', 'maintenance'],
     default: 'available'
   },
-  
+
   isActive: {
     type: Boolean,
     default: true
   },
-  
+
   isVerified: {
     type: Boolean,
     default: false
   },
-  
+
   // Current Trip (if on duty)
   currentIncident: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Incident',
     default: null
   },
-  
+
   // Statistics
   stats: {
     totalTrips: {
@@ -149,17 +156,17 @@ const ambulanceSchema = new mongoose.Schema({
       default: 0
     }
   },
-  
+
   // Documents
   documents: {
     registration: String, // Cloudinary URL
     insurance: String,
     permit: String
   },
-  
+
   // Device Token
   fcmToken: String,
-  
+
   // Metadata
   registrationDate: {
     type: Date,
@@ -167,7 +174,7 @@ const ambulanceSchema = new mongoose.Schema({
   },
   lastMaintenanceDate: Date,
   nextMaintenanceDate: Date
-  
+
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -189,7 +196,7 @@ ambulanceSchema.virtual('tripHistory', {
 });
 
 // Hash password
-ambulanceSchema.pre('save', async function(next) {
+ambulanceSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
@@ -197,12 +204,12 @@ ambulanceSchema.pre('save', async function(next) {
 });
 
 // Compare password
-ambulanceSchema.methods.comparePassword = async function(candidatePassword) {
+ambulanceSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
 // Update location
-ambulanceSchema.methods.updateLocation = function(longitude, latitude, address) {
+ambulanceSchema.methods.updateLocation = function (longitude, latitude, address) {
   this.currentLocation = {
     type: 'Point',
     coordinates: [longitude, latitude],
@@ -212,67 +219,67 @@ ambulanceSchema.methods.updateLocation = function(longitude, latitude, address) 
 };
 
 // Check if available
-ambulanceSchema.methods.isAvailable = function() {
-  return this.status === 'available' && 
-         this.isActive && 
-         this.isVerified &&
-         !this.currentIncident;
+ambulanceSchema.methods.isAvailable = function () {
+  return this.status === 'available' &&
+    this.isActive &&
+    this.isVerified &&
+    !this.currentIncident;
 };
 
 // Accept trip
-ambulanceSchema.methods.acceptTrip = function(incidentId) {
+ambulanceSchema.methods.acceptTrip = function (incidentId) {
   this.status = 'on_duty';
   this.currentIncident = incidentId;
   this.stats.totalTrips += 1;
 };
 
 // Complete trip
-ambulanceSchema.methods.completeTrip = function() {
+ambulanceSchema.methods.completeTrip = function () {
   this.status = 'available';
   this.currentIncident = null;
   this.stats.completedTrips += 1;
 };
 
 // Cancel trip
-ambulanceSchema.methods.cancelTrip = function() {
+ambulanceSchema.methods.cancelTrip = function () {
   this.status = 'available';
   this.currentIncident = null;
   this.stats.cancelledTrips += 1;
 };
 
 // Update rating
-ambulanceSchema.methods.updateRating = function(newRating) {
+ambulanceSchema.methods.updateRating = function (newRating) {
   const totalRatings = this.stats.totalRatings;
   const currentAverage = this.stats.averageRating;
-  
-  this.stats.averageRating = 
+
+  this.stats.averageRating =
     (currentAverage * totalRatings + newRating) / (totalRatings + 1);
   this.stats.totalRatings += 1;
 };
 
 // Calculate distance
-ambulanceSchema.methods.calculateDistance = function(longitude, latitude) {
+ambulanceSchema.methods.calculateDistance = function (longitude, latitude) {
   const R = 6371; // Earth radius in km
   const dLat = (latitude - this.currentLocation.coordinates[1]) * Math.PI / 180;
   const dLon = (longitude - this.currentLocation.coordinates[0]) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(this.currentLocation.coordinates[1] * Math.PI / 180) * 
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(this.currentLocation.coordinates[1] * Math.PI / 180) *
     Math.cos(latitude * Math.PI / 180) *
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c; // Distance in km
 };
 
 // Calculate ETA (simplified: distance / 40 km/h average speed)
-ambulanceSchema.methods.calculateETA = function(longitude, latitude) {
+ambulanceSchema.methods.calculateETA = function (longitude, latitude) {
   const distance = this.calculateDistance(longitude, latitude);
   return Math.ceil((distance / 40) * 60); // ETA in minutes
 };
 
 // Calculate matching score for emergency
-ambulanceSchema.methods.calculateMatchScore = function(emergency) {
+ambulanceSchema.methods.calculateMatchScore = function (emergency) {
   if (!this.isAvailable()) return 0;
-  
+
   const distance = this.calculateDistance(
     emergency.location.coordinates[0],
     emergency.location.coordinates[1]
@@ -281,7 +288,7 @@ ambulanceSchema.methods.calculateMatchScore = function(emergency) {
     emergency.location.coordinates[0],
     emergency.location.coordinates[1]
   );
-  
+
   // Score: Lower is better
   // Distance weight: 40%, ETA weight: 40%, Equipment match: 20%
   let equipmentScore = 0;
@@ -292,11 +299,11 @@ ambulanceSchema.methods.calculateMatchScore = function(emergency) {
   } else {
     equipmentScore = 0.5;
   }
-  
+
   // Normalize and calculate final score (lower is better)
   const distanceScore = distance / 20; // Normalize by 20km
   const etaScore = eta / 30; // Normalize by 30 minutes
-  
+
   return (distanceScore * 0.4) + (etaScore * 0.4) + ((1 - equipmentScore) * 0.2);
 };
 

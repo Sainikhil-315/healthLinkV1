@@ -134,6 +134,11 @@ async function register(req, res) {
  * @route   POST /api/v1/auth/login
  * @access  Public
  */
+/**
+ * @desc    Login user
+ * @route   POST /api/v1/auth/login
+ * @access  Public
+ */
 async function login(req, res) {
   try {
     const { email, password } = req.body;
@@ -150,22 +155,38 @@ async function login(req, res) {
       { Model: Donor, role: USER_ROLES.DONOR }
     ];
 
+    // Search across all models
     for (const { Model, role } of models) {
-      user = await Model.findOne({ email }).select('+password');
+      // For User model, look in both email and driver.email
+      if (Model === Ambulance) {
+        user = await Model.findOne({ 'driver.email': email }).select('+password');
+      } else {
+        user = await Model.findOne({ email }).select('+password');
+      }
+      
       if (user) {
-        // For User model, use user.role from DB (could be 'admin' or 'user')
-        userRole = (Model === User) ? user.role : role;
+        // For User model, check if it's an admin or regular user
+        if (Model === User) {
+          userRole = user.role || USER_ROLES.USER;
+        } else {
+          // For other models, use the predefined role
+          userRole = role;
+        }
+        
+        console.log(`Login attempt for email: ${email} role: ${userRole}`);
         break;
       }
     }
 
     if (!user) {
+      console.log(`Login failed: No user found with email ${email}`);
       return res.status(401).json(createError(AUTH_ERRORS.INVALID_CREDENTIALS));
     }
 
     // Check password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
+      console.log(`Login failed: Invalid password for ${email}`);
       return res.status(401).json(createError(AUTH_ERRORS.INVALID_CREDENTIALS));
     }
 
@@ -181,25 +202,39 @@ async function login(req, res) {
     // Generate tokens
     const token = generateToken({
       id: user._id,
-      email: user.email,
+      email: user.email || user.driver?.email, // Handle ambulance email
       role: userRole
     });
     const refreshToken = generateRefreshToken({ id: user._id });
 
     logger.info(`User logged in: ${email} (${userRole})`);
 
+    // Prepare response based on model type
+    let responseUser = {
+      id: user._id,
+      email: email,
+      role: userRole,
+      isVerified: user.isVerified || user.isPhoneVerified
+    };
+
+    // Add model-specific fields
+    if (userRole === USER_ROLES.AMBULANCE) {
+      responseUser.name = user.driver?.name;
+      responseUser.phone = user.driver?.phone;
+      responseUser.vehicleNumber = user.vehicleNumber;
+    } else if (userRole === USER_ROLES.HOSPITAL) {
+      responseUser.name = user.name;
+      responseUser.phone = user.phone;
+    } else {
+      responseUser.name = user.fullName || user.name;
+      responseUser.phone = user.phone;
+    }
+
     res.status(200).json({
       success: true,
       message: 'Login successful',
       data: {
-        user: {
-          id: user._id,
-          name: user.fullName || user.name,
-          email: user.email,
-          phone: user.phone,
-          role: userRole,
-          isVerified: user.isVerified || user.isPhoneVerified
-        },
+        user: responseUser,
         token,
         refreshToken
       }
@@ -213,7 +248,7 @@ async function login(req, res) {
       error: error.message
     });
   }
-};
+}
 
 /**
  * @desc    Logout user

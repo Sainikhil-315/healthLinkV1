@@ -21,6 +21,7 @@ const connectDB = async () => {
 const ambulanceData = [
   {
     vehicleNumber: 'DL01AB1234',
+    role: 'ambulance',
     driver: {
       name: 'Rajesh Kumar',
       phone: '9876543210',
@@ -41,8 +42,8 @@ const ambulanceData = [
     },
     currentLocation: {
       type: 'Point',
-      coordinates: [77.2090, 28.6139], // Delhi
-      address: 'Connaught Place, New Delhi',
+      coordinates: [80.613565, 16.5237], // Near specified location
+      address: 'Near HealthLink, Vijayawada',
       lastUpdated: new Date()
     },
     status: 'available',
@@ -62,6 +63,7 @@ const ambulanceData = [
   },
   {
     vehicleNumber: 'DL02CD5678',
+    role: 'ambulance',
     driver: {
       name: 'Priya Sharma',
       phone: '9876543211',
@@ -82,8 +84,8 @@ const ambulanceData = [
     },
     currentLocation: {
       type: 'Point',
-      coordinates: [77.2167, 28.6667], // North Delhi
-      address: 'Rohini, Delhi',
+      coordinates: [80.6136, 16.5238], // Near specified location
+      address: 'Near HealthLink, Vijayawada',
       lastUpdated: new Date()
     },
     status: 'available',
@@ -103,6 +105,7 @@ const ambulanceData = [
   },
   {
     vehicleNumber: 'DL03EF9012',
+    role: 'ambulance',
     driver: {
       name: 'Amit Singh',
       phone: '9876543212',
@@ -144,6 +147,7 @@ const ambulanceData = [
   },
   {
     vehicleNumber: 'DL04GH3456',
+    role: 'ambulance',
     driver: {
       name: 'Sunita Verma',
       phone: '9876543213',
@@ -185,6 +189,7 @@ const ambulanceData = [
   },
   {
     vehicleNumber: 'DL05IJ7890',
+    role: 'ambulance',
     driver: {
       name: 'Vikram Rao',
       phone: '9876543214',
@@ -226,6 +231,7 @@ const ambulanceData = [
   },
   {
     vehicleNumber: 'DL06KL2345',
+    role: 'ambulance',
     driver: {
       name: 'Deepak Patel',
       phone: '9876543215',
@@ -267,6 +273,7 @@ const ambulanceData = [
   },
   {
     vehicleNumber: 'DL07MN6789',
+    role: 'ambulance',
     driver: {
       name: 'Meena Krishnan',
       phone: '9876543216',
@@ -308,6 +315,7 @@ const ambulanceData = [
   },
   {
     vehicleNumber: 'DL08OP1234',
+    role: 'ambulance',
     driver: {
       name: 'Ravi Subramanian',
       phone: '9876543217',
