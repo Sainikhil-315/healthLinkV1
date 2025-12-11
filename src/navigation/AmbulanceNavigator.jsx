@@ -6,6 +6,8 @@ import DriverDashboardScreen from '../screens/Ambulance/DriverDashboardScreen';
 import ActiveEmergencyScreen from '../screens/Ambulance/ActiveEmergencyScreen';
 import NavigationScreen from '../screens/Ambulance/NavigationScreen';
 import CompletedTripsScreen from '../screens/Ambulance/CompletedTripsScreen';
+import EquipmentStatusScreen from '../screens/Ambulance/EquipmentStatusScreen';
+import ProfileSettingsScreen from '../screens/Ambulance/ProfileSettingsScreen';
 import { COLORS } from '../utils/constants';
 
 const Tab = createBottomTabNavigator();
@@ -16,6 +18,13 @@ const DashboardStack = () => (
     <Stack.Screen name="Dashboard" component={DriverDashboardScreen} />
     <Stack.Screen name="ActiveEmergency" component={ActiveEmergencyScreen} />
     <Stack.Screen name="Navigation" component={NavigationScreen} />
+    <Stack.Screen name="EquipmentStatus" component={EquipmentStatusScreen} />
+  </Stack.Navigator>
+);
+
+const ProfileStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
   </Stack.Navigator>
 );
 
@@ -33,7 +42,7 @@ const AmbulanceNavigator = () => {
             iconName = focused ? 'alert-circle' : 'alert-circle-outline';
           } else if (route.name === 'Trips') {
             iconName = focused ? 'list' : 'list-outline';
-          } else if (route.name === 'Profile') {
+          } else if (route.name === 'Settings') {
             iconName = focused ? 'person' : 'person-outline';
           }
 
@@ -50,7 +59,13 @@ const AmbulanceNavigator = () => {
         }
       })}
     >
-      <Tab.Screen name="Home" component={DashboardStack} />
+      <Tab.Screen 
+        name="Home" 
+        component={DashboardStack}
+        options={{
+          tabBarLabel: 'Home'
+        }}
+      />
       <Tab.Screen 
         name="Emergency" 
         component={ActiveEmergencyScreen}
@@ -67,10 +82,10 @@ const AmbulanceNavigator = () => {
         }}
       />
       <Tab.Screen 
-        name="Profile" 
-        component={DriverDashboardScreen}
+        name="Settings" 
+        component={ProfileStack}
         options={{
-          tabBarLabel: 'Settings'
+          tabBarLabel: 'Profile'
         }}
       />
     </Tab.Navigator>

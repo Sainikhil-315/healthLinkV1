@@ -24,7 +24,8 @@ async function registerAmbulance(req, res) {
       ambulanceType,
       hospitalId,
       equipment,
-      licenseNumber
+      licenseNumber,
+      role
     } = req.body;
 
     // Check if ambulance already exists
@@ -68,7 +69,8 @@ async function registerAmbulance(req, res) {
         ventilator: equipment?.includes('ventilator') || false,
         ecgMachine: equipment?.includes('ecgMachine') || false
       },
-      registrationDate: Date.now()
+      registrationDate: Date.now(),
+      licenseExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year from now
     });
 
     // Send welcome email
@@ -85,6 +87,7 @@ async function registerAmbulance(req, res) {
       data: {
         ambulance: {
           id: ambulance._id,
+          role: ambulance.role,
           vehicleNumber: ambulance.vehicleNumber,
           driverName: ambulance.driver.name,
           email: ambulance.driver.email,

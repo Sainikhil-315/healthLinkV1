@@ -120,20 +120,22 @@ async function createEmergency(req, res) {
       DISTANCE_CONSTANTS.MAX_AMBULANCE_RADIUS_KM
     );
 
-    if (!nearestAmbulances) {
+    let bestAmbulance = null;
+    if (nearestAmbulances) {
+      bestAmbulance = findBestAmbulance([nearestAmbulances], incident);
+
+      if (bestAmbulance) {
+        incident.assignAmbulance(bestAmbulance.ambulanceId, bestAmbulance.eta);
+        await incident.save();
+
+        // Notify ambulance
+        const ambulance = await Ambulance.findById(bestAmbulance.ambulanceId);
+        if (ambulance) {
+          await notifyAmbulance(ambulance, incident, bestAmbulance.eta);
+        }
+      }
+    } else {
       logger.warn(`No ambulance available for incident ${incident._id}`);
-      return res.status(503).json(createError(EMERGENCY_ERRORS.NO_AMBULANCE));
-    }
-
-    const bestAmbulance = findBestAmbulance([nearestAmbulances], incident);
-
-    if (bestAmbulance) {
-      incident.assignAmbulance(bestAmbulance.ambulanceId, bestAmbulance.eta);
-      await incident.save();
-
-      // Notify ambulance
-      const ambulance = await Ambulance.findById(bestAmbulance.ambulanceId);
-      await notifyAmbulance(ambulance, incident, bestAmbulance.eta);
     }
 
     // Find and assign hospital
@@ -150,9 +152,17 @@ async function createEmergency(req, res) {
       30
     );
 
+    // FIXED: Fetch hospital details safely
+    let assignedHospital = null;
     if (nearestHospital) {
-      incident.assignHospital(nearestHospital.hospitalId, nearestHospital.eta);
-      await incident.save();
+      assignedHospital = await Hospital.findById(nearestHospital.hospitalId);
+      
+      if (assignedHospital) {
+        incident.assignHospital(nearestHospital.hospitalId, nearestHospital.eta);
+        await incident.save();
+      } else {
+        logger.warn(`Hospital ${nearestHospital.hospitalId} not found for incident ${incident._id}`);
+      }
     }
 
     // Dispatch volunteer if critical
@@ -194,9 +204,8 @@ async function createEmergency(req, res) {
           5
         );
 
-        if (compatibleDonors.length > 0 && nearestHospital) {
-          const hospital = await Hospital.findById(nearestHospital.hospitalId);
-          await notifyDonors(compatibleDonors, incident, bloodGroup, hospital);
+        if (compatibleDonors.length > 0 && assignedHospital) {
+          await notifyDonors(compatibleDonors, incident, bloodGroup, assignedHospital);
           incident.bloodRequired = true;
           await incident.save();
         }
@@ -216,6 +225,7 @@ async function createEmergency(req, res) {
 
     logger.info(`Emergency created: ${incident._id} (${incident.severity})`);
 
+    // FIXED: Safe response construction
     res.status(201).json({
       success: true,
       message: 'Emergency alert created successfully',
@@ -226,7 +236,8 @@ async function createEmergency(req, res) {
           severity: incident.severity,
           status: incident.status,
           ambulanceETA: bestAmbulance?.eta || null,
-          hospitalName: nearestHospital ? (await Hospital.findById(nearestHospital.hospitalId)).name : null,
+          hospitalName: assignedHospital?.name || null,
+          hospitalId: assignedHospital?._id || null,
           trackingLink: `${process.env.CLIENT_URL}/track/${incident._id}`
         }
       }
