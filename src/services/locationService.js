@@ -9,6 +9,9 @@ class LocationService {
     this.currentLocation = null;
     this.watchId = null;
     this.isTracking = false;
+    this.updateInterval = null;
+    this.lastUpdateTime = 0;
+    this.minUpdateInterval = 5000; // Minimum 5 seconds between updates
   }
 
   async requestPermissions() {
@@ -24,6 +27,20 @@ class LocationService {
             buttonPositive: 'OK',
           }
         );
+
+        // Request background location for Android 10+
+        if (Platform.Version >= 29 && granted === PermissionsAndroid.RESULTS.GRANTED) {
+          await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+            {
+              title: 'Background Location Permission',
+              message: 'HealthLink needs background location for continuous tracking.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            }
+          );
+        }
 
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
           await AsyncStorage.setItem(STORAGE_KEYS.LOCATION_PERMISSION, 'granted');
@@ -58,11 +75,11 @@ class LocationService {
               accuracy: position.coords.accuracy,
               timestamp: position.timestamp
             };
+            console.log('📍 Current location obtained:', this.currentLocation);
             resolve(this.currentLocation);
           },
           (error) => {
-            console.error('Geolocation error:', error);
-            // Try again with lower accuracy if high accuracy fails
+            // Only log error if both attempts fail
             if (error.code === 3) { // TIMEOUT
               Geolocation.getCurrentPosition(
                 (position) => {
@@ -72,16 +89,21 @@ class LocationService {
                     accuracy: position.coords.accuracy,
                     timestamp: position.timestamp
                   };
+                  console.log('📍 Current location obtained (low accuracy):', this.currentLocation);
                   resolve(this.currentLocation);
                 },
-                (err) => reject(err),
+                (err) => {
+                  console.error('Geolocation error (both attempts failed):', err);
+                  reject(err);
+                },
                 { enableHighAccuracy: false, timeout: 30000, maximumAge: 10000 }
               );
             } else {
+              console.error('Geolocation error:', error);
               reject(error);
             }
           },
-          { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 }
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
         );
       });
     } catch (error) {
@@ -93,6 +115,7 @@ class LocationService {
   async startTracking(callback) {
     try {
       if (this.isTracking) {
+        console.log('⚠️ Already tracking location');
         return;
       }
 
@@ -102,8 +125,17 @@ class LocationService {
         throw new Error('Location permission not granted');
       }
 
+      console.log('🎯 Starting location tracking...');
+
       this.watchId = Geolocation.watchPosition(
         (position) => {
+          const now = Date.now();
+          
+          // Throttle updates to avoid too frequent calls
+          if (now - this.lastUpdateTime < this.minUpdateInterval) {
+            return;
+          }
+
           const location = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
@@ -111,24 +143,45 @@ class LocationService {
             timestamp: position.timestamp
           };
 
+          // Check if location has actually changed significantly (>10 meters)
+          if (this.currentLocation) {
+            const distance = this.calculateDistance(
+              this.currentLocation.lat,
+              this.currentLocation.lng,
+              location.lat,
+              location.lng
+            );
+
+            // Only update if moved more than 10 meters
+            if (distance < 0.01) {
+              return;
+            }
+          }
+
           this.currentLocation = location;
+          this.lastUpdateTime = now;
+
+          console.log('📍 Location updated:', location);
+
+          // Send to socket for real-time updates
           socketService.updateLocation(location);
 
+          // Call the callback
           if (callback) {
             callback(location);
           }
         },
-        (error) => console.error('Location tracking error:', error),
+        (error) => console.error('❌ Location tracking error:', error),
         {
           enableHighAccuracy: true,
-          distanceFilter: 10,
-          interval: 5000,
-          fastestInterval: 3000
+          distanceFilter: 10, // Update every 10 meters
+          interval: 5000, // Check every 5 seconds
+          fastestInterval: 3000 // Fastest update rate
         }
       );
 
       this.isTracking = true;
-      console.log('Location tracking started');
+      console.log('✅ Location tracking started');
     } catch (error) {
       console.error('Start tracking error:', error);
       throw error;
@@ -140,14 +193,14 @@ class LocationService {
       Geolocation.clearWatch(this.watchId);
       this.watchId = null;
       this.isTracking = false;
-      console.log('Location tracking stopped');
+      console.log('🛑 Location tracking stopped');
     }
   }
 
   async getAddressFromCoords(lat, lng) {
     try {
-      // Use a geocoding API (Google, Mapbox, etc.)
-      // For now, return null - implement based on your preference
+      // Implement reverse geocoding using Google Maps or other service
+      // For now, return null
       return null;
     } catch (error) {
       console.error('Reverse geocode error:', error);
@@ -156,7 +209,7 @@ class LocationService {
   }
 
   calculateDistance(lat1, lng1, lat2, lng2) {
-    const R = 6371;
+    const R = 6371; // Earth radius in km
     const dLat = this.toRadians(lat2 - lat1);
     const dLng = this.toRadians(lng2 - lng1);
 
@@ -168,7 +221,7 @@ class LocationService {
         Math.sin(dLng / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(R * c * 100) / 100;
+    return R * c;
   }
 
   toRadians(degrees) {

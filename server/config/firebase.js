@@ -86,10 +86,10 @@ async function sendEmergencyNotification(data) {
   const { tokens, patientName, location, severity } = data;
 
   const severityEmojis = {
-    CRITICAL: '🚨',
-    HIGH: '⚠️',
-    MEDIUM: '⚡',
-    LOW: 'ℹ️'
+    critical: '🚨',
+    high: '⚠️',
+    medium: '⚡',
+    low: 'ℹ️'
   };
 
   return sendPushNotification({

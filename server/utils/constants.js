@@ -10,10 +10,10 @@ const USER_ROLES = {
 
 // Emergency Severity Levels
 const SEVERITY_LEVELS = {
-  CRITICAL: 'CRITICAL',    // Unconscious, not breathing
-  HIGH: 'HIGH',            // Heavy bleeding, severe pain
-  MEDIUM: 'MEDIUM',        // Conscious, moderate injury
-  LOW: 'LOW'               // Minor injury, stable
+  CRITICAL: 'critical',    // Unconscious, not breathing
+  HIGH: 'high',            // Heavy bleeding, severe pain
+  MEDIUM: 'medium',        // Conscious, moderate injury
+  LOW: 'low'               // Minor injury, stable
 };
 
 // Emergency Types

@@ -19,6 +19,7 @@ function scoreAmbulance(ambulance, emergency) {
     // Calculate distance and ETA
     const distance = calculateDistance(emergencyLat, emergencyLng, ambulanceLat, ambulanceLng);
     const eta = calculateETA(distance);
+    console.log(`[AMBULANCE DISTANCE] Incident (${emergencyLat},${emergencyLng}) <-> Ambulance (${ambulanceLat},${ambulanceLng}): ${distance} km`);
 
     // Equipment match score
     let equipmentScore = 0.5; // Default baseline
@@ -127,6 +128,7 @@ function findBestHospital(availableHospitals, emergency, requiredBedType = 'emer
 
         const distance = calculateDistance(emergencyLat, emergencyLng, hospitalLat, hospitalLng);
         const eta = calculateETA(distance, 50); // Slightly faster speed for hospital transport
+        console.log(`[HOSPITAL DISTANCE] Incident (${emergencyLat},${emergencyLng}) <-> Hospital (${hospitalLat},${hospitalLng}): ${distance} km`);
 
         // Check bed availability
         const bedsAvailable = hospital.bedAvailability?.[requiredBedType]?.available || 0;

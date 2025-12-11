@@ -1,35 +1,35 @@
 const mongoose = require('mongoose');
 
-const specialistSchema = new mongoose.Schema({
-  specialization: {
-    type: String,
-    required: true,
-    enum: [
-      'Cardiologist',
-      'Neurologist',
-      'Orthopedic',
-      'Traumatologist',
-      'General Surgeon',
-      'Pediatrician',
-      'Pulmonologist',
-      'Nephrologist',
-      'Emergency Medicine'
-    ]
-  },
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  isAvailable: {
-    type: Boolean,
-    default: true
-  },
-  phone: {
-    type: String,
-    match: /^[6-9]\d{9}$/
-  }
-}, { _id: false });
+// const specialistSchema = new mongoose.Schema({
+//   specialization: {
+//     type: String,
+//     required: true,
+//     enum: [
+//       'Cardiologist',
+//       'Neurologist',
+//       'Orthopedic',
+//       'Traumatologist',
+//       'General Surgeon',
+//       'Pediatrician',
+//       'Pulmonologist',
+//       'Nephrologist',
+//       'Emergency Medicine'
+//     ]
+//   },
+//   name: {
+//     type: String,
+//     required: true,
+//     trim: true
+//   },
+//   isAvailable: {
+//     type: Boolean,
+//     default: true
+//   },
+//   phone: {
+//     type: String,
+//     match: /^[6-9]\d{9}$/
+//   }
+// }, { _id: false });
 
 const bedAvailabilitySchema = new mongoose.Schema({
   general: {
@@ -163,7 +163,7 @@ const hospitalSchema = new mongoose.Schema({
   },
   
   // Specialists
-  specialists: [specialistSchema],
+  // specialists: [specialistSchema],
   
   // Facilities
   facilities: facilitiesSchema,

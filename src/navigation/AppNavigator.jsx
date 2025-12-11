@@ -35,7 +35,7 @@ const AppNavigator = () => {
   // Determine which navigator to show based on user role
   const getRoleNavigator = () => {
     if (!user) return UserNavigator;
-
+    console.log("User role:", user.role);
     switch (user.role) {
       case USER_ROLES.AMBULANCE:
         return AmbulanceNavigator;

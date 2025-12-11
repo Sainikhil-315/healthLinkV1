@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Hospital = require('./models/Hospital'); // Adjust path to your model
+const Hospital = require('../models/Hospital'); // Adjust path to your model
 require('dotenv').config();
 
 

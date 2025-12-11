@@ -31,9 +31,20 @@ function validateObjectId(paramName = 'id') {
  * Validate location coordinates
  */
 function validateLocation(req, res, next) {
-  const { lat, lng } = req.body.location || req.body;
+  let lat, lng;
+  if (req.body.location) {
+    lat = req.body.location.lat;
+    lng = req.body.location.lng;
+  } else {
+    lat = req.query.lat;
+    lng = req.query.lng;
+  }
+  lat = parseFloat(lat);
+  lng = parseFloat(lng);
 
-  if (lat === undefined || lng === undefined) {
+  console.log("latitude, Lng", lat, lng);
+
+  if (isNaN(lat) || isNaN(lng)) {
     return res.status(400).json(createError(
       VALIDATION_ERRORS.MISSING_FIELD,
       'Location coordinates (lat, lng) are required'
@@ -45,7 +56,7 @@ function validateLocation(req, res, next) {
   }
 
   next();
-};
+}
 
 /**
  * Validate email format

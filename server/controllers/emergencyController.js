@@ -77,7 +77,7 @@ async function createEmergency(req, res) {
         knownConditions: user.healthProfile?.chronicConditions || [],
         knownMedications: user.healthProfile?.currentMedications?.map(m => m.name) || []
       };
-      incidentData.severity = 'HIGH'; // Default for self
+      incidentData.severity = 'high'; // Default for self
     } else {
       // Bystander emergency - calculate severity from triage
       const severity = calculateSeverity(triageAnswers);

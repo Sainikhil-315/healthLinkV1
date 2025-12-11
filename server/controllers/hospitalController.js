@@ -20,9 +20,10 @@ async function registerHospital(req, res) {
       address,
       registrationNumber,
       beds,
-      specialties,
+      // specialties,
       type,
       emergencyPhone,
+      facilities
     } = req.body;
 
     // Validate that location coordinates are provided
@@ -60,6 +61,19 @@ async function registerHospital(req, res) {
         .substr(2, 9)
         .toUpperCase()}`;
 
+    // // Process specialists - only allow valid objects, never strings
+    // let processedSpecialists = [];
+    // if (specialties && Array.isArray(specialties)) {
+    //   processedSpecialists = specialties
+    //     .filter(specialist => typeof specialist === 'object' && specialist.specialization && specialist.name)
+    //     .map(specialist => ({
+    //       specialization: specialist.specialization,
+    //       name: specialist.name,
+    //       isAvailable: specialist.isAvailable !== undefined ? specialist.isAvailable : true,
+    //       phone: specialist.phone || undefined
+    //     }));
+    // }
+
     // Create hospital data with required location
     const hospitalData = {
       name,
@@ -75,7 +89,16 @@ async function registerHospital(req, res) {
         emergency: { total: 10, available: 10 },
         lastUpdated: Date.now(),
       },
-      specialists: specialties || [],
+      // specialists: processedSpecialists
+      facilities: facilities || {
+        oxygenAvailable: true,
+        ventilators: 0,
+        ambulanceService: true,
+        bloodBank: false,
+        pharmacy24x7: true,
+        emergencyRoom: true,
+        operationTheater: true
+      },
       location: {
         type: 'Point',
         coordinates: [parseFloat(location.lng), parseFloat(location.lat)],
