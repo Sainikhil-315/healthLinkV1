@@ -5,9 +5,12 @@ const { validate, updateProfileSchema } = require('../utils/validators.js');
 const {
   validateObjectId,
   validateLocation,
-  sanitizeInput
+  sanitizeInput,
 } = require('../middleware/validator.js');
-const { uploadSingle, imagesOnly } = require('../middleware/uploadMiddleware.js');
+const {
+  uploadSingle,
+  imagesOnly,
+} = require('../middleware/uploadMiddleware.js');
 
 const {
   createUser,
@@ -22,7 +25,8 @@ const {
   deleteAccount,
   getUserStats,
   getEmergencyContacts,
-  getLocation
+  getLocation,
+  becomeDonor,
 } = require('../controllers/userController.js');
 
 const router = express.Router();
@@ -39,35 +43,21 @@ router.post('/', sanitizeInput, createUser);
  * @desc    Get user profile
  * @access  Private
  */
-router.get(
-  '/profile',
-  authenticate,
-  getUserProfile
-);
+router.get('/profile', authenticate, getUserProfile);
 
 /**
  * @route   GET /api/v1/users/stats
  * @desc    Get user statistics
  * @access  Private (User)
  */
-router.get(
-  '/stats',
-  authenticate,
-  userOnly,
-  getUserStats
-);
+router.get('/stats', authenticate, userOnly, getUserStats);
 
 /**
  * @route   GET /api/v1/users/emergency-contacts
  * @desc    Get all emergency contacts
  * @access  Private (User)
  */
-router.get(
-  '/emergency-contacts',
-  authenticate,
-  userOnly,
-  getEmergencyContacts
-);
+router.get('/emergency-contacts', authenticate, userOnly, getEmergencyContacts);
 
 /**
  * @route   POST /api/v1/users/emergency-contacts
@@ -79,7 +69,7 @@ router.post(
   authenticate,
   userOnly,
   sanitizeInput,
-  addEmergencyContact
+  addEmergencyContact,
 );
 
 /**
@@ -92,7 +82,7 @@ router.put(
   authenticate,
   userOnly,
   sanitizeInput,
-  updateEmergencyContact
+  updateEmergencyContact,
 );
 
 /**
@@ -104,7 +94,7 @@ router.delete(
   '/emergency-contacts/:contactId',
   authenticate,
   userOnly,
-  deleteEmergencyContact
+  deleteEmergencyContact,
 );
 
 /**
@@ -117,7 +107,7 @@ router.put(
   authenticate,
   userOnly,
   sanitizeInput,
-  updateHealthProfile
+  updateHealthProfile,
 );
 
 /**
@@ -131,7 +121,7 @@ router.post(
   userOnly,
   uploadSingle('photo'),
   imagesOnly,
-  uploadProfilePicture
+  uploadProfilePicture,
 );
 
 /**
@@ -139,24 +129,14 @@ router.post(
  * @desc    Delete user account
  * @access  Private (User)
  */
-router.delete(
-  '/account',
-  authenticate,
-  userOnly,
-  deleteAccount
-);
+router.delete('/account', authenticate, userOnly, deleteAccount);
 
 /**
  * @route   GET /api/v1/users/:id
  * @desc    Get user by ID
  * @access  Private
  */
-router.get(
-  '/:id',
-  authenticate,
-  validateObjectId('id'),
-  getUserProfile
-);
+router.get('/:id', authenticate, validateObjectId('id'), getUserProfile);
 
 /**
  * @route   PUT /api/v1/users/profile
@@ -169,7 +149,7 @@ router.put(
   userOnly,
   sanitizeInput,
   validate(updateProfileSchema),
-  updateUserProfile
+  updateUserProfile,
 );
 
 /**
@@ -183,9 +163,16 @@ router.put(
   userOnly,
   validateLocation,
   sanitizeInput,
-  updateLocation
+  updateLocation,
 );
 
 router.get('/location', authenticate, userOnly, getLocation);
+
+/**
+ * @route   PUT /api/v1/users/become-donor
+ * @desc    Become a donor
+ * @access  Private
+ */
+router.put('/become-donor', authenticate, becomeDonor);
 
 module.exports = router;

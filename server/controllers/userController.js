@@ -1,6 +1,52 @@
+/**
+ * @desc    Become a volunteer (user applies for volunteer)
+ * @route   POST /api/v1/users/become-volunteer
+ * @access  Private (User)
+ */
+async function becomeVolunteer(req, res) {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json(createError(USER_ERRORS.NOT_FOUND));
+    }
+    // Only allow if not already pending or approved
+    if (
+      user.volunteerStatus === 'pending' ||
+      user.volunteerStatus === 'approved'
+    ) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: 'Already applied or approved as volunteer.',
+        });
+    }
+    user.volunteerStatus = 'pending';
+    user.isVolunteer = false;
+    await user.save();
+    res.status(200).json({
+      success: true,
+      message: 'Volunteer application submitted. Awaiting verification.',
+      data: {
+        volunteerStatus: user.volunteerStatus,
+        isVolunteer: user.isVolunteer,
+      },
+    });
+  } catch (error) {
+    logger.error('Become volunteer error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit volunteer application',
+      error: error.message,
+    });
+  }
+}
 const User = require('../models/User.js');
 const Incident = require('../models/Incident.js');
-const { uploadProfilePicture: uploadToCloudinary } = require('../config/cloudinary.js');
+const {
+  uploadProfilePicture: uploadToCloudinary,
+} = require('../config/cloudinary.js');
 const { USER_ERRORS, createError } = require('../utils/errorMessages.js');
 const logger = require('../utils/logger.js');
 
@@ -11,11 +57,20 @@ const logger = require('../utils/logger.js');
  */
 async function createUser(req, res) {
   try {
-    const { fullName, email, phone, password, role, isEmailVerified, isPhoneVerified, isActive } = req.body;
+    const {
+      fullName,
+      email,
+      phone,
+      password,
+      role,
+      isEmailVerified,
+      isPhoneVerified,
+      isActive,
+    } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({
-      $or: [{ email }, { phone }]
+      $or: [{ email }, { phone }],
     });
 
     if (existingUser) {
@@ -34,7 +89,7 @@ async function createUser(req, res) {
       role: role || 'user',
       isEmailVerified: isEmailVerified || false,
       isPhoneVerified: isPhoneVerified || false,
-      isActive: isActive !== undefined ? isActive : true
+      isActive: isActive !== undefined ? isActive : true,
     });
 
     logger.info(`New user created: ${email} with role: ${role || 'user'}`);
@@ -51,17 +106,16 @@ async function createUser(req, res) {
           role: user.role,
           isEmailVerified: user.isEmailVerified,
           isPhoneVerified: user.isPhoneVerified,
-          isActive: user.isActive
-        }
-      }
+          isActive: user.isActive,
+        },
+      },
     });
-
   } catch (error) {
     logger.error('Create user error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create user',
-      error: error.message
+      error: error.message,
     });
   }
 }
@@ -83,18 +137,17 @@ async function getUserProfile(req, res) {
 
     res.status(200).json({
       success: true,
-      data: { user }
+      data: { user },
     });
-
   } catch (error) {
     logger.error('Get user profile error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch user profile',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Update user profile
@@ -112,7 +165,7 @@ async function updateUserProfile(req, res) {
       'phone',
       'dateOfBirth',
       'address',
-      'bloodGroup'
+      'bloodGroup',
     ];
 
     const updateData = {};
@@ -122,11 +175,10 @@ async function updateUserProfile(req, res) {
       }
     });
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      updateData,
-      { new: true, runValidators: true }
-    ).select('-password');
+    const user = await User.findByIdAndUpdate(userId, updateData, {
+      new: true,
+      runValidators: true,
+    }).select('-password');
 
     if (!user) {
       return res.status(404).json(createError(USER_ERRORS.NOT_FOUND));
@@ -137,18 +189,17 @@ async function updateUserProfile(req, res) {
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      data: { user }
+      data: { user },
     });
-
   } catch (error) {
     logger.error('Update profile error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update profile',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Update user location
@@ -158,7 +209,7 @@ async function updateUserProfile(req, res) {
 async function updateLocation(req, res) {
   try {
     const userId = req.user.id;
-    
+
     const locationData = req.body.location || req.body;
     const { lat, lng, address } = locationData;
 
@@ -166,7 +217,7 @@ async function updateLocation(req, res) {
     if (lat === undefined || lng === undefined) {
       return res.status(400).json({
         success: false,
-        message: 'Latitude and longitude are required'
+        message: 'Latitude and longitude are required',
       });
     }
 
@@ -174,14 +225,14 @@ async function updateLocation(req, res) {
     if (lat < -90 || lat > 90) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid latitude. Must be between -90 and 90'
+        message: 'Invalid latitude. Must be between -90 and 90',
       });
     }
 
     if (lng < -180 || lng > 180) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid longitude. Must be between -180 and 180'
+        message: 'Invalid longitude. Must be between -180 and 180',
       });
     }
 
@@ -204,20 +255,19 @@ async function updateLocation(req, res) {
           type: user.currentLocation.type,
           coordinates: user.currentLocation.coordinates,
           address: user.currentLocation.address,
-          lastUpdated: user.currentLocation.lastUpdated
-        }
-      }
+          lastUpdated: user.currentLocation.lastUpdated,
+        },
+      },
     });
-
   } catch (error) {
     logger.error('Update location error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update location',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Add emergency contact
@@ -230,7 +280,7 @@ async function addEmergencyContact(req, res) {
     const { name, phone, relation } = req.body;
 
     const user = await User.findById(userId);
-    console.log("User fetched:", user);
+    console.log('User fetched:', user);
     if (!user) {
       return res.status(404).json(createError(USER_ERRORS.NOT_FOUND));
     }
@@ -239,7 +289,7 @@ async function addEmergencyContact(req, res) {
     if (user.emergencyContacts.length >= 3) {
       return res.status(400).json({
         success: false,
-        message: 'Maximum 3 emergency contacts allowed'
+        message: 'Maximum 3 emergency contacts allowed',
       });
     }
 
@@ -252,19 +302,18 @@ async function addEmergencyContact(req, res) {
       success: true,
       message: 'Emergency contact added successfully',
       data: {
-        emergencyContacts: user.emergencyContacts
-      }
+        emergencyContacts: user.emergencyContacts,
+      },
     });
-
   } catch (error) {
     logger.error('Add emergency contact error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to add emergency contact',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Get emergency contacts
@@ -274,7 +323,9 @@ async function addEmergencyContact(req, res) {
 async function getEmergencyContacts(req, res) {
   try {
     const userId = req.user.id;
-    const user = await User.findOne({ _id: userId }).select('emergencyContacts');
+    const user = await User.findOne({ _id: userId }).select(
+      'emergencyContacts',
+    );
 
     if (!user) {
       return res.status(404).json(createError(USER_ERRORS.NOT_FOUND));
@@ -283,19 +334,18 @@ async function getEmergencyContacts(req, res) {
     res.status(200).json({
       success: true,
       data: {
-        emergencyContacts: user.emergencyContacts
-      }
+        emergencyContacts: user.emergencyContacts,
+      },
     });
-
   } catch (error) {
     logger.error('Get emergency contacts error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch emergency contacts',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Update emergency contact
@@ -318,7 +368,7 @@ async function updateEmergencyContact(req, res) {
     if (!contact) {
       return res.status(404).json({
         success: false,
-        message: 'Emergency contact not found'
+        message: 'Emergency contact not found',
       });
     }
 
@@ -328,18 +378,17 @@ async function updateEmergencyContact(req, res) {
     res.status(200).json({
       success: true,
       message: 'Emergency contact updated successfully',
-      data: { emergencyContacts: user.emergencyContacts }
+      data: { emergencyContacts: user.emergencyContacts },
     });
-
   } catch (error) {
     logger.error('Update emergency contact error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update emergency contact',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Delete emergency contact
@@ -362,7 +411,7 @@ async function deleteEmergencyContact(req, res) {
     if (!contact) {
       return res.status(404).json({
         success: false,
-        message: 'Emergency contact not found'
+        message: 'Emergency contact not found',
       });
     }
 
@@ -374,18 +423,17 @@ async function deleteEmergencyContact(req, res) {
 
     res.status(200).json({
       success: true,
-      message: 'Emergency contact deleted successfully'
+      message: 'Emergency contact deleted successfully',
     });
-
   } catch (error) {
     logger.error('Delete emergency contact error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete emergency contact',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Update health profile
@@ -395,7 +443,14 @@ async function deleteEmergencyContact(req, res) {
 async function updateHealthProfile(req, res) {
   try {
     const userId = req.user.id;
-    const { bloodType, allergies, chronicConditions, currentMedications, weight, height } = req.body;
+    const {
+      bloodType,
+      allergies,
+      chronicConditions,
+      currentMedications,
+      weight,
+      height,
+    } = req.body;
 
     const user = await User.findById(userId);
 
@@ -410,8 +465,10 @@ async function updateHealthProfile(req, res) {
 
     if (bloodType) user.healthProfile.bloodType = bloodType;
     if (allergies) user.healthProfile.allergies = allergies;
-    if (chronicConditions) user.healthProfile.chronicConditions = chronicConditions;
-    if (currentMedications) user.healthProfile.currentMedications = currentMedications;
+    if (chronicConditions)
+      user.healthProfile.chronicConditions = chronicConditions;
+    if (currentMedications)
+      user.healthProfile.currentMedications = currentMedications;
     if (weight) user.healthProfile.weight = weight;
     if (height) user.healthProfile.height = height;
 
@@ -425,19 +482,18 @@ async function updateHealthProfile(req, res) {
       success: true,
       message: 'Health profile updated successfully',
       data: {
-        healthProfile: user.healthProfile
-      }
+        healthProfile: user.healthProfile,
+      },
     });
-
   } catch (error) {
     logger.error('Update health profile error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update health profile',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Upload profile picture
@@ -451,7 +507,7 @@ async function uploadProfilePicture(req, res) {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'No file provided'
+        message: 'No file provided',
       });
     }
 
@@ -462,26 +518,25 @@ async function uploadProfilePicture(req, res) {
     const user = await User.findByIdAndUpdate(
       userId,
       { profilePicture: result.url },
-      { new: true }
+      { new: true },
     ).select('-password');
 
     res.status(200).json({
       success: true,
       message: 'Profile picture uploaded successfully',
       data: {
-        profilePicture: result.url
-      }
+        profilePicture: result.url,
+      },
     });
-
   } catch (error) {
     logger.error('Upload profile picture error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to upload profile picture',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Get user statistics
@@ -500,17 +555,17 @@ async function getUserStats(req, res) {
 
     // Get incident statistics
     const totalIncidents = await Incident.countDocuments({
-      $or: [{ reportedBy: userId }, { 'patient.userId': userId }]
+      $or: [{ reportedBy: userId }, { 'patient.userId': userId }],
     });
 
     const resolvedIncidents = await Incident.countDocuments({
       $or: [{ reportedBy: userId }, { 'patient.userId': userId }],
-      status: 'resolved'
+      status: 'resolved',
     });
 
     const activeIncident = await Incident.findOne({
       $or: [{ reportedBy: userId }, { 'patient.userId': userId }],
-      status: { $in: ['pending', 'ambulance_dispatched', 'en_route_hospital'] }
+      status: { $in: ['pending', 'ambulance_dispatched', 'en_route_hospital'] },
     });
 
     res.status(200).json({
@@ -522,22 +577,20 @@ async function getUserStats(req, res) {
           activeEmergency: activeIncident ? true : false,
           accountCreated: user.createdAt,
           profileComplete: !!(
-            user.healthProfile?.bloodType &&
-            user.emergencyContacts.length > 0
-          )
-        }
-      }
+            user.healthProfile?.bloodType && user.emergencyContacts.length > 0
+          ),
+        },
+      },
     });
-
   } catch (error) {
     logger.error('Get user stats error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch user statistics',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Delete user account
@@ -551,13 +604,13 @@ async function deleteAccount(req, res) {
     // Check for active emergencies
     const activeEmergency = await Incident.findOne({
       reportedBy: userId,
-      status: { $in: ['pending', 'ambulance_dispatched', 'en_route_hospital'] }
+      status: { $in: ['pending', 'ambulance_dispatched', 'en_route_hospital'] },
     });
 
     if (activeEmergency) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot delete account with active emergency'
+        message: 'Cannot delete account with active emergency',
       });
     }
 
@@ -567,29 +620,28 @@ async function deleteAccount(req, res) {
 
     res.status(200).json({
       success: true,
-      message: 'Account deleted successfully'
+      message: 'Account deleted successfully',
     });
-
   } catch (error) {
     logger.error('Delete account error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete account',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 async function getLocation(req, res) {
   try {
     const userId = req.user.id;
-    console.log("Hello");
+    console.log('Hello');
     const user = await User.findById(userId).select('currentLocation');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
@@ -601,20 +653,67 @@ async function getLocation(req, res) {
           latitude: user.currentLocation.coordinates[1],
           longitude: user.currentLocation.coordinates[0],
           address: user.currentLocation.address,
-          lastUpdated: user.currentLocation.lastUpdated
-        }
-      }
+          lastUpdated: user.currentLocation.lastUpdated,
+        },
+      },
     });
-
   } catch (error) {
     logger.error('Get location error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch location',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
+
+/**
+ * @desc    Become a donor (update user status)
+ * @route   PUT /api/v1/users/become-donor
+ * @access  Private
+ */
+async function becomeDonor(req, res) {
+  try {
+    const userId = req.user.id;
+    const { lastDonationDate } = req.body;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json(createError(USER_ERRORS.NOT_FOUND));
+    }
+    if (user.isDonor) {
+      return res.status(200).json({
+        success: true,
+        message: 'Already a donor',
+        data: {
+          isDonor: true,
+          lastDonationDate: user.lastDonationDate,
+          healthProfile: user.healthProfile,
+        },
+      });
+    }
+    user.isDonor = true;
+    if (lastDonationDate) {
+      user.lastDonationDate = lastDonationDate;
+    }
+    await user.save();
+    res.status(200).json({
+      success: true,
+      message: 'You are now a donor!',
+      data: {
+        isDonor: true,
+        lastDonationDate: user.lastDonationDate,
+        healthProfile: user.healthProfile,
+      },
+    });
+  } catch (error) {
+    logger.error('Become donor error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update donor status',
+      error: error.message,
+    });
+  }
+}
 
 module.exports = {
   createUser,
@@ -629,5 +728,7 @@ module.exports = {
   uploadProfilePicture,
   getUserStats,
   deleteAccount,
-  getLocation
-}
+  getLocation,
+  becomeDonor,
+  becomeVolunteer,
+};

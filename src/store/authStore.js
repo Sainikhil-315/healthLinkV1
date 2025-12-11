@@ -22,7 +22,7 @@ const useAuthStore = create((set, get) => ({
       const response = await apiService.login(credentials);
       const { user, token, refreshToken } = response.data;
       console.log('Login response:', response);
-      
+
       // Save to AsyncStorage with error handling
       try {
         await AsyncStorage.multiSet([
@@ -68,11 +68,11 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  register: async (userData) => {
+  register: async userData => {
     try {
       console.log('Registering user with data:', userData);
       set({ isLoading: true, error: null });
-      
+
       // Use different endpoint for hospital registration
       let response;
       if (userData.role === 'hospital') {
@@ -80,7 +80,7 @@ const useAuthStore = create((set, get) => ({
       } else {
         response = await apiService.register(userData);
       }
-      
+
       console.log('Registration response:', response);
       const { user, token, refreshToken } = response.data;
 
@@ -88,7 +88,7 @@ const useAuthStore = create((set, get) => ({
         await AsyncStorage.multiSet([
           [STORAGE_KEYS.AUTH_TOKEN, token],
           [STORAGE_KEYS.REFRESH_TOKEN, refreshToken],
-          [STORAGE_KEYS.USER_DATA, JSON.stringify(user)]
+          [STORAGE_KEYS.USER_DATA, JSON.stringify(user)],
         ]);
       } catch (storageError) {
         console.warn('Failed to save auth data to AsyncStorage:', storageError);
@@ -99,7 +99,7 @@ const useAuthStore = create((set, get) => ({
         token,
         refreshToken,
         isAuthenticated: true,
-        isLoading: false
+        isLoading: false,
       });
 
       try {
@@ -116,12 +116,16 @@ const useAuthStore = create((set, get) => ({
           console.log('✅ Location updated after registration:', location);
         }
       } catch (locationError) {
-        console.warn('Failed to update location after registration:', locationError);
+        console.warn(
+          'Failed to update location after registration:',
+          locationError,
+        );
       }
 
       return { success: true };
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Registration failed';
+      const errorMessage =
+        error.response?.data?.message || 'Registration failed';
       set({ error: errorMessage, isLoading: false });
       return { success: false, error: errorMessage };
     }
@@ -168,82 +172,63 @@ const useAuthStore = create((set, get) => ({
     try {
       set({ isLoading: true });
 
-      // Safely get AsyncStorage data with error handling
+      // Get tokens from AsyncStorage
       let token = null;
       let refreshToken = null;
-      let userData = null;
-
       try {
         const data = await AsyncStorage.multiGet([
           STORAGE_KEYS.AUTH_TOKEN,
           STORAGE_KEYS.REFRESH_TOKEN,
-          STORAGE_KEYS.USER_DATA,
         ]);
-
-        if (data && data.length === 3) {
+        if (data && data.length === 2) {
           token = data[0][1];
           refreshToken = data[1][1];
-          userData = data[2][1];
         }
       } catch (storageError) {
         console.warn('AsyncStorage access error:', storageError);
       }
 
-      if (token && userData) {
+      if (token) {
+        // Reconnect socket
         try {
-          const user = JSON.parse(userData);
+          await socketService.connect();
+        } catch (socketError) {
+          console.warn('Socket connection error:', socketError);
+        }
 
-          // Verify user has a valid role
-          if (!user || !user.role) {
-            console.warn('Invalid user data - no role found');
+        // 🔥 UPDATE LOCATION ON APP RESTART
+        try {
+          const location = await locationService.getCurrentLocation();
+          if (location) {
+            await apiService.updateLocation(location);
+            console.log('✅ Location updated on app restart:', location);
+          }
+        } catch (locationError) {
+          console.warn('Failed to update location on restart:', locationError);
+        }
+
+        // Always fetch user from backend for latest donor status
+        try {
+          const response = await apiService.getCurrentUser();
+          if (response?.data?.user) {
+            set({
+              user: response.data.user,
+              token,
+              refreshToken,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+            return true;
+          } else {
             set({ isLoading: false, isAuthenticated: false });
             return false;
           }
-
-          set({
-            user,
-            token,
-            refreshToken,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-
-          // Reconnect socket
-          try {
-            await socketService.connect();
-          } catch (socketError) {
-            console.warn('Socket connection error:', socketError);
-          }
-
-          // 🔥 UPDATE LOCATION ON APP RESTART
-          try {
-            const location = await locationService.getCurrentLocation();
-            if (location) {
-              await apiService.updateLocation(location);
-              console.log('✅ Location updated on app restart:', location);
-            }
-          } catch (locationError) {
-            console.warn('Failed to update location on restart:', locationError);
-          }
-
-          // Refresh user data to ensure it's current
-          try {
-            const response = await apiService.getCurrentUser();
-            if (response?.data) {
-              set({ user: response.data });
-            }
-          } catch (error) {
-            console.log('Failed to refresh user data:', error);
-          }
-
-          return true;
-        } catch (parseError) {
-          console.error('Failed to parse user data:', parseError);
+        } catch (error) {
+          console.log('Failed to fetch user from backend:', error);
           set({ isLoading: false, isAuthenticated: false });
           return false;
         }
       } else {
-        console.log('No stored auth data found');
         set({ isLoading: false, isAuthenticated: false });
         return false;
       }
@@ -261,6 +246,73 @@ const useAuthStore = create((set, get) => ({
   setError: error => set({ error }),
 
   clearError: () => set({ error: null }),
+
+  becomeDonor: async (payload = {}) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await apiService.becomeDonor(payload);
+      if (response.success) {
+        // Always use getCurrentUser for profile refresh
+        const profileRes = await apiService.getCurrentUser();
+        if (profileRes.success && profileRes.data?.user) {
+          set(state => ({
+            user: profileRes.data.user,
+            isLoading: false,
+          }));
+        } else {
+          set(state => ({
+            user: {
+              ...state.user,
+              isDonor: true,
+              lastDonationDate:
+                response.data?.lastDonationDate || state.user.lastDonationDate,
+              healthProfile:
+                response.data?.healthProfile || state.user.healthProfile,
+            },
+            isLoading: false,
+          }));
+        }
+      } else {
+        set({ error: response.message, isLoading: false });
+      }
+      return response;
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
+      return { success: false, error: error.message };
+    }
+  },
+
+  becomeVolunteer: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await apiService.becomeVolunteer();
+      if (response.success) {
+        // Always use getCurrentUser for profile refresh
+        const profileRes = await apiService.getCurrentUser();
+        if (profileRes.success && profileRes.data?.user) {
+          set(state => ({
+            user: profileRes.data.user,
+            isLoading: false,
+          }));
+        } else {
+          set(state => ({
+            user: {
+              ...state.user,
+              isVolunteer: false,
+              volunteerStatus: 'pending',
+            },
+            isLoading: false,
+          }));
+        }
+      } else {
+        set({ error: response.message, isLoading: false });
+      }
+      return response;
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
+      return { success: false, error: error.message };
+    }
+  },
 }));
 
 export default useAuthStore;

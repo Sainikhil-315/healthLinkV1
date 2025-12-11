@@ -3,9 +3,21 @@ const Ambulance = require('../models/Ambulance.js');
 const Hospital = require('../models/Hospital.js');
 const Volunteer = require('../models/Volunteer.js');
 const Donor = require('../models/Donor.js');
-const { generateToken, generateRefreshToken, verifyRefreshToken } = require('../middleware/auth.js');
-const { sendVerificationEmail, sendPasswordResetEmail, sendUserWelcomeEmail } = require('../services/emailService.js');
-const { AUTH_ERRORS, USER_ERRORS, createError } = require('../utils/errorMessages.js');
+const {
+  generateToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+} = require('../middleware/auth.js');
+const {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendUserWelcomeEmail,
+} = require('../services/emailService.js');
+const {
+  AUTH_ERRORS,
+  USER_ERRORS,
+  createError,
+} = require('../utils/errorMessages.js');
 const { USER_ROLES } = require('../utils/constants.js');
 const logger = require('../utils/logger.js');
 const crypto = require('crypto');
@@ -18,7 +30,15 @@ const crypto = require('crypto');
 async function register(req, res) {
   try {
     console.log('Register request body:', req.body);
-    const { name, email, phone, password, role, bloodGroup, emergencyContacts } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      password,
+      role,
+      bloodGroup,
+      emergencyContacts,
+    } = req.body;
 
     // Select model based on role
     let Model = User;
@@ -39,28 +59,32 @@ async function register(req, res) {
         // Ambulance registration handled separately
         return res.status(400).json({
           success: false,
-          message: 'Please use /ambulances/register endpoint for ambulance registration'
+          message:
+            'Please use /ambulances/register endpoint for ambulance registration',
         });
 
       case USER_ROLES.HOSPITAL:
         Model = Hospital;
         return res.status(400).json({
           success: false,
-          message: 'Please use /hospitals/register endpoint for hospital registration'
+          message:
+            'Please use /hospitals/register endpoint for hospital registration',
         });
 
       case USER_ROLES.VOLUNTEER:
         Model = Volunteer;
         return res.status(400).json({
           success: false,
-          message: 'Please use /volunteers/register endpoint for volunteer registration'
+          message:
+            'Please use /volunteers/register endpoint for volunteer registration',
         });
 
       case USER_ROLES.DONOR:
         Model = Donor;
         return res.status(400).json({
           success: false,
-          message: 'Please use /donors/register endpoint for donor registration'
+          message:
+            'Please use /donors/register endpoint for donor registration',
         });
 
       default:
@@ -69,7 +93,7 @@ async function register(req, res) {
 
     // Check if user already exists
     const existingUser = await Model.findOne({
-      $or: [{ email }, { phone }]
+      $or: [{ email }, { phone }],
     });
 
     if (existingUser) {
@@ -96,7 +120,7 @@ async function register(req, res) {
     const token = generateToken({
       id: user._id,
       email: user.email,
-      role: role || 'user'
+      role: role || 'user',
     });
     const refreshToken = generateRefreshToken({ id: user._id });
 
@@ -112,22 +136,21 @@ async function register(req, res) {
           email: user.email,
           phone: user.phone,
           role: role || 'user',
-          isVerified: false
+          isVerified: false,
         },
         token,
-        refreshToken
-      }
+        refreshToken,
+      },
     });
-
   } catch (error) {
     logger.error('Registration error:', error);
     res.status(500).json({
       success: false,
       message: 'Registration failed',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Login user
@@ -147,14 +170,14 @@ async function login(req, res) {
       { Model: Ambulance, role: USER_ROLES.AMBULANCE },
       { Model: Hospital, role: USER_ROLES.HOSPITAL },
       { Model: Volunteer, role: USER_ROLES.VOLUNTEER },
-      { Model: Donor, role: USER_ROLES.DONOR }
+      { Model: Donor, role: USER_ROLES.DONOR },
     ];
 
     for (const { Model, role } of models) {
       user = await Model.findOne({ email }).select('+password');
       if (user) {
         // For User model, use user.role from DB (could be 'admin' or 'user')
-        userRole = (Model === User) ? user.role : role;
+        userRole = Model === User ? user.role : role;
         break;
       }
     }
@@ -182,7 +205,7 @@ async function login(req, res) {
     const token = generateToken({
       id: user._id,
       email: user.email,
-      role: userRole
+      role: userRole,
     });
     const refreshToken = generateRefreshToken({ id: user._id });
 
@@ -198,22 +221,21 @@ async function login(req, res) {
           email: user.email,
           phone: user.phone,
           role: userRole,
-          isVerified: user.isVerified || user.isPhoneVerified
+          isVerified: user.isVerified || user.isPhoneVerified,
         },
         token,
-        refreshToken
-      }
+        refreshToken,
+      },
     });
-
   } catch (error) {
     logger.error('Login error:', error);
     res.status(500).json({
       success: false,
       message: 'Login failed',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Logout user
@@ -229,18 +251,17 @@ async function logout(req, res) {
 
     res.status(200).json({
       success: true,
-      message: 'Logout successful'
+      message: 'Logout successful',
     });
-
   } catch (error) {
     logger.error('Logout error:', error);
     res.status(500).json({
       success: false,
       message: 'Logout failed',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Get current logged in user
@@ -275,20 +296,33 @@ async function getCurrentUser(req, res) {
       return res.status(404).json(createError(USER_ERRORS.NOT_FOUND));
     }
 
+    // Ensure donor fields are always present in the response
+    const userObj = user.toObject();
+    userObj.isDonor = user.isDonor;
+    userObj.lastDonationDate = user.lastDonationDate;
+    // Ensure healthProfile and its fields are always present
+    userObj.healthProfile = user.healthProfile || {};
+    userObj.healthProfile.weight = user.healthProfile?.weight || null;
+    userObj.healthProfile.chronicConditions =
+      user.healthProfile?.chronicConditions || [];
+    userObj.healthProfile.currentMedications =
+      user.healthProfile?.currentMedications || [];
+    // Volunteer fields
+    userObj.isVolunteer = user.isVolunteer;
+    userObj.volunteerStatus = user.volunteerStatus;
     res.status(200).json({
       success: true,
-      data: { user }
+      data: { user: userObj },
     });
-
   } catch (error) {
     logger.error('Get current user error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch user data',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Refresh access token
@@ -316,19 +350,18 @@ async function refreshToken(req, res) {
     const newToken = generateToken({
       id: user._id,
       email: user.email,
-      role: 'user'
+      role: 'user',
     });
 
     res.status(200).json({
       success: true,
-      data: { token: newToken }
+      data: { token: newToken },
     });
-
   } catch (error) {
     logger.error('Refresh token error:', error);
     res.status(401).json(createError(AUTH_ERRORS.TOKEN_INVALID));
   }
-};
+}
 
 /**
  * @desc    Send OTP for verification
@@ -355,18 +388,17 @@ async function sendOTP(req, res) {
 
     res.status(200).json({
       success: true,
-      message: 'OTP sent successfully to your email'
+      message: 'OTP sent successfully to your email',
     });
-
   } catch (error) {
     logger.error('Send OTP error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to send OTP',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Verify OTP
@@ -390,7 +422,7 @@ async function verifyOTP(req, res) {
     if (!isValid) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired OTP'
+        message: 'Invalid or expired OTP',
       });
     }
 
@@ -404,18 +436,17 @@ async function verifyOTP(req, res) {
 
     res.status(200).json({
       success: true,
-      message: 'Account verified successfully'
+      message: 'Account verified successfully',
     });
-
   } catch (error) {
     logger.error('Verify OTP error:', error);
     res.status(500).json({
       success: false,
       message: 'Verification failed',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Send password reset link
@@ -432,7 +463,7 @@ async function forgotPassword(req, res) {
       // Don't reveal if user exists
       return res.status(200).json({
         success: true,
-        message: 'If an account exists, a password reset link has been sent'
+        message: 'If an account exists, a password reset link has been sent',
       });
     }
 
@@ -447,18 +478,17 @@ async function forgotPassword(req, res) {
 
     res.status(200).json({
       success: true,
-      message: 'Password reset link sent to your email'
+      message: 'Password reset link sent to your email',
     });
-
   } catch (error) {
     logger.error('Forgot password error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to process request',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Reset password with token
@@ -471,21 +501,18 @@ async function resetPassword(req, res) {
     const { password } = req.body;
 
     // Hash token to compare with DB
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(token)
-      .digest('hex');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     // Find user with valid token
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: Date.now() }
+      resetPasswordExpires: { $gt: Date.now() },
     });
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired reset token'
+        message: 'Invalid or expired reset token',
       });
     }
 
@@ -499,18 +526,17 @@ async function resetPassword(req, res) {
 
     res.status(200).json({
       success: true,
-      message: 'Password reset successful. Please login with your new password'
+      message: 'Password reset successful. Please login with your new password',
     });
-
   } catch (error) {
     logger.error('Reset password error:', error);
     res.status(500).json({
       success: false,
       message: 'Password reset failed',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 /**
  * @desc    Change password (logged in user)
@@ -533,7 +559,7 @@ async function changePassword(req, res) {
     if (!isValid) {
       return res.status(401).json({
         success: false,
-        message: 'Current password is incorrect'
+        message: 'Current password is incorrect',
       });
     }
 
@@ -545,18 +571,17 @@ async function changePassword(req, res) {
 
     res.status(200).json({
       success: true,
-      message: 'Password changed successfully'
+      message: 'Password changed successfully',
     });
-
   } catch (error) {
     logger.error('Change password error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to change password',
-      error: error.message
+      error: error.message,
     });
   }
-};
+}
 
 module.exports = {
   register,
@@ -569,4 +594,4 @@ module.exports = {
   forgotPassword,
   resetPassword,
   changePassword,
-}
+};

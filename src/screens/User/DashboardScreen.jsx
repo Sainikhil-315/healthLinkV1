@@ -1,3 +1,44 @@
+  // Volunteer application modal
+  const [volunteerModalVisible, setVolunteerModalVisible] = React.useState(false);
+  const [submittingVolunteer, setSubmittingVolunteer] = React.useState(false);
+
+  const handleBecomeVolunteer = async () => {
+    setSubmittingVolunteer(true);
+    const res = await becomeVolunteer();
+    setSubmittingVolunteer(false);
+    if (res.success) {
+      Toast.show({ type: 'success', text1: 'Volunteer application submitted!' });
+      setVolunteerModalVisible(false);
+    } else {
+      Toast.show({ type: 'error', text1: 'Error', text2: res.error || 'Could not submit application.' });
+    }
+  };
+
+  const renderVolunteerModal = () => (
+    <Modal
+      visible={volunteerModalVisible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setVolunteerModalVisible(false)}
+    >
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+        <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '85%' }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: COLORS.info }}>Become a Volunteer</Text>
+          <Text style={{ fontSize: 16, marginBottom: 16 }}>Apply to help in emergencies and community events. Your application will be reviewed by our team.</Text>
+          <TouchableOpacity
+            style={{ backgroundColor: COLORS.info, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, alignSelf: 'center' }}
+            onPress={handleBecomeVolunteer}
+            disabled={submittingVolunteer}
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{submittingVolunteer ? 'Submitting...' : 'Submit Application'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ marginTop: 16, alignSelf: 'center' }} onPress={() => setVolunteerModalVisible(false)}>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 16 }}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 import React, { useEffect } from 'react';
 import {
   View,
@@ -5,18 +46,27 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  RefreshControl
+  RefreshControl,
+  Modal,
+  TextInput
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Linking } from 'react-native'; 
+import Toast from 'react-native-toast-message';
 import useAuthStore from '../../store/authStore';
 import useEmergencyStore from '../../store/emergencyStore';
 import { COLORS, SCREENS } from '../../utils/constants';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const DashboardScreen = ({ navigation }) => {
-  const { user } = useAuthStore();
-  const { activeEmergency, getMyEmergencies, emergencies, isLoading } = useEmergencyStore();
+  const { user, becomeDonor, isLoading, loadStoredAuth } = useAuthStore();
+  const { activeEmergency, getMyEmergencies, emergencies, isLoading: emergenciesLoading } = useEmergencyStore();
   const [refreshing, setRefreshing] = React.useState(false);
+  const [donorModalVisible, setDonorModalVisible] = React.useState(false);
+  const [donorFormVisible, setDonorFormVisible] = React.useState(false);
+  const [lastDonationDate, setLastDonationDate] = React.useState('');
+  const [showDatePicker, setShowDatePicker] = React.useState(false);
+  const [submittingDonor, setSubmittingDonor] = React.useState(false);
 
   useEffect(() => {
     loadData();
@@ -28,8 +78,20 @@ const DashboardScreen = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    await loadStoredAuth();
     await loadData();
+    // Debug: log user state after refresh
+    console.log('User after refresh:', user);
     setRefreshing(false);
+  };
+
+  const handleBecomeDonor = async () => {
+    const res = await becomeDonor();
+    if (res.success) {
+      Toast.show({ type: 'success', text1: 'You are now a donor!' });
+    } else {
+      Toast.show({ type: 'error', text1: 'Error', text2: res.error || 'Could not update donor status.' });
+    }
   };
 
   const QuickActionCard = ({ icon, title, description, color, onPress }) => (
@@ -49,17 +111,100 @@ const DashboardScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  // Donor registration form modal
+  const renderDonorFormModal = () => (
+    <Modal
+      visible={donorFormVisible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setDonorFormVisible(false)}
+    >
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+        <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '85%' }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: COLORS.success }}>Become a Donor</Text>
+          <Text style={{ fontSize: 16, marginBottom: 8 }}>When was your last blood donation?</Text>
+          <TouchableOpacity
+            style={{ borderWidth: 1, borderColor: COLORS.textSecondary, borderRadius: 8, padding: 10, marginBottom: 16 }}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text style={{ color: lastDonationDate ? COLORS.text : COLORS.textSecondary }}>
+              {lastDonationDate ? new Date(lastDonationDate).toLocaleDateString() : 'Select Date'}
+            </Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={lastDonationDate ? new Date(lastDonationDate) : new Date()}
+              mode="date"
+              display="calendar"
+              maximumDate={new Date()}
+              onChange={(event, selectedDate) => {
+                setShowDatePicker(false);
+                if (selectedDate) {
+                  setLastDonationDate(selectedDate.toISOString());
+                }
+              }}
+            />
+          )}
+          <TouchableOpacity
+            style={{ backgroundColor: COLORS.success, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, alignSelf: 'center' }}
+            onPress={async () => {
+              setSubmittingDonor(true);
+              const res = await becomeDonor({ lastDonationDate });
+              setSubmittingDonor(false);
+              if (res.success) {
+                Toast.show({ type: 'success', text1: 'You are now a donor!' });
+                setDonorFormVisible(false);
+              } else {
+                Toast.show({ type: 'error', text1: 'Error', text2: res.error || 'Could not update donor status.' });
+              }
+            }}
+            disabled={submittingDonor || !lastDonationDate}
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{submittingDonor ? 'Submitting...' : 'Submit'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ marginTop: 16, alignSelf: 'center' }} onPress={() => setDonorFormVisible(false)}>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 16 }}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // Donor details modal content
+  const renderDonorDetailsModal = () => (
+    <Modal
+      visible={donorModalVisible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setDonorModalVisible(false)}
+    >
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+        <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '85%' }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: COLORS.success }}>Donor Details</Text>
+          <Text style={{ fontSize: 16, marginBottom: 8 }}>Blood Type: <Text style={{ fontWeight: 'bold' }}>{user?.healthProfile?.bloodType || 'N/A'}</Text></Text>
+          <Text style={{ fontSize: 16, marginBottom: 8 }}>Last Donation Date: <Text style={{ fontWeight: 'bold' }}>{user?.lastDonationDate ? new Date(user.lastDonationDate).toLocaleDateString() : 'N/A'}</Text></Text>
+          <Text style={{ fontSize: 16, marginBottom: 8 }}>Weight: <Text style={{ fontWeight: 'bold' }}>{user?.healthProfile?.weight || 'N/A'} kg</Text></Text>
+          <Text style={{ fontSize: 16, marginBottom: 8 }}>Chronic Conditions: <Text style={{ fontWeight: 'bold' }}>{user?.healthProfile?.chronicConditions?.join(', ') || 'None'}</Text></Text>
+          <Text style={{ fontSize: 16, marginBottom: 8 }}>Current Medications: <Text style={{ fontWeight: 'bold' }}>{user?.healthProfile?.currentMedications?.map(med => med.name).join(', ') || 'None'}</Text></Text>
+          <TouchableOpacity style={{ marginTop: 24, alignSelf: 'center', backgroundColor: COLORS.success, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32 }} onPress={() => setDonorModalVisible(false)}>
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Hello,</Text>
-          <Text style={styles.userName}>{user?.name || 'User'}</Text>
+          <Text style={styles.userName}>{user?.fullName || user?.name || 'User'}</Text>
         </View>
         <TouchableOpacity
           style={styles.notificationButton}
-          onPress={() => {}}
+          onPress={() => navigation.navigate('Notifications')}
         >
           <Icon name="notifications-outline" size={24} color={COLORS.text} />
           <View style={styles.badge}>
@@ -142,6 +287,93 @@ const DashboardScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('HealthProfile')}
           />
         </View>
+
+        {/* Become a Donor Button or View Donor Details Button */}
+        {!user?.isDonor && (
+          <TouchableOpacity
+            style={[styles.actionCard, { borderLeftColor: COLORS.success }]}
+            onPress={() => setDonorFormVisible(true)}
+            activeOpacity={0.8}
+            disabled={isLoading}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: COLORS.success + '20' }]}> 
+              <Icon name="heart" size={28} color={COLORS.success} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>{isLoading ? 'Processing...' : 'Become a Donor'}</Text>
+              <Text style={styles.actionDescription}>Help save lives by registering as a donor.</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+        {user?.isDonor && (
+          <TouchableOpacity
+            style={[styles.actionCard, { borderLeftColor: COLORS.success }]}
+            onPress={() => setDonorModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: COLORS.success + '20' }]}> 
+              <Icon name="information-circle" size={28} color={COLORS.success} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>View Donor Details</Text>
+              <Text style={styles.actionDescription}>See your donor information.</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {renderDonorFormModal()}
+        {renderDonorDetailsModal()}
+        {/* Become a Volunteer Button or Status */}
+        {user?.volunteerStatus === 'none' && (
+          <TouchableOpacity
+            style={[styles.actionCard, { borderLeftColor: COLORS.info }]}
+            onPress={() => setVolunteerModalVisible(true)}
+            activeOpacity={0.8}
+            disabled={isLoading}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: COLORS.info + '20' }]}> 
+              <Icon name="hand-left" size={28} color={COLORS.info} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>{isLoading ? 'Processing...' : 'Become a Volunteer'}</Text>
+              <Text style={styles.actionDescription}>Apply to help in emergencies and events.</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+        {user?.volunteerStatus === 'pending' && (
+          <View style={[styles.actionCard, { borderLeftColor: COLORS.info, opacity: 0.7 }]}> 
+            <View style={[styles.iconContainer, { backgroundColor: COLORS.info + '20' }]}> 
+              <Icon name="time" size={28} color={COLORS.info} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Volunteer Application Pending</Text>
+              <Text style={styles.actionDescription}>Your application is under review.</Text>
+            </View>
+          </View>
+        )}
+        {user?.volunteerStatus === 'approved' && (
+          <View style={[styles.actionCard, { borderLeftColor: COLORS.info }]}> 
+            <View style={[styles.iconContainer, { backgroundColor: COLORS.info + '20' }]}> 
+              <Icon name="checkmark-circle" size={28} color={COLORS.info} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Verified Volunteer</Text>
+              <Text style={styles.actionDescription}>Thank you for volunteering!</Text>
+            </View>
+          </View>
+        )}
+        {user?.volunteerStatus === 'rejected' && (
+          <View style={[styles.actionCard, { borderLeftColor: COLORS.danger }]}> 
+            <View style={[styles.iconContainer, { backgroundColor: COLORS.danger + '20' }]}> 
+              <Icon name="close-circle" size={28} color={COLORS.danger} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Volunteer Application Rejected</Text>
+              <Text style={styles.actionDescription}>Please contact support for details.</Text>
+            </View>
+          </View>
+        )}
+        {renderVolunteerModal()}
 
         {/* Recent Emergencies */}
         {emergencies.length > 0 && (

@@ -124,6 +124,8 @@ export const apiService = {
     }),
   getUserStats: () => api.get('/users/stats'),
   deleteAccount: () => api.delete('/users/account'),
+  becomeDonor: (payload = {}) => api.put('/users/become-donor', payload),
+  becomeVolunteer: () => api.post('/users/become-volunteer'),
 
   // Emergency
   createEmergency: data => api.post('/emergency/create', data),
@@ -162,7 +164,8 @@ export const apiService = {
     api.get('/hospitals/available/nearby', { params: location }),
   searchHospitals: query => api.get('/hospitals/search', { params: query }),
   getHospitalStats: () => api.get('/hospitals/stats'),
-  getPatientHistory: (params) => api.get('/hospitals/patient-history', { params }),
+  getPatientHistory: params =>
+    api.get('/hospitals/patient-history', { params }),
 
   // Ambulance
   registerAmbulance: data => api.post('/ambulances/register', data),
