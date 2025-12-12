@@ -185,6 +185,7 @@ export const apiService = {
     api.post(`/ambulances/trip/${incidentId}/complete`),
   getAmbulanceStats: () => api.get('/ambulances/stats'),
   getPendingRequests: () => api.get('/ambulances/requests/pending'),
+  arriveAtIncident: incidentId => api.post(`/ambulances/trip/${incidentId}/arrive`),
 
   // Volunteer
   registerVolunteer: data => api.post('/volunteers/register', data),

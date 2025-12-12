@@ -20,7 +20,8 @@ const {
   acceptTrip,
   startTrip,
   completeTrip,
-  getAmbulanceStats
+  getAmbulanceStats,
+  arriveAtIncident
 } = require('../controllers/ambulanceController.js');
 
 
@@ -199,6 +200,18 @@ router.get(
   authenticate,
   ambulanceOnly,
   require('../controllers/ambulanceController').getPendingRequests
+);
+
+/**
+ * @route   POST /api/v1/ambulances/trip/:incidentId/arrive
+ * @desc    Mark ambulance as arrived at incident (update incident status)
+ * @access  Private (Ambulance)
+ */
+router.post(
+  '/trip/:incidentId/arrive',
+  authenticate,
+  ambulanceOnly,
+  arriveAtIncident
 );
 
 module.exports = router;

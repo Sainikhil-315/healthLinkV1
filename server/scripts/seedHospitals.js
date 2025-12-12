@@ -13,11 +13,11 @@ const hospitals = [
     password: "Hospital@123", // Will be hashed automatically
     location: {
       type: "Point",
-      coordinates: [77.2090, 28.6139], // Delhi
-      address: "Sarita Vihar",
-      city: "Delhi",
-      state: "Delhi",
-      pincode: "110076"
+      coordinates: [80.613539, 16.5236721], // Near test location
+      address: "Test Area",
+      city: "Test City",
+      state: "Test State",
+      pincode: "000000"
     },
     type: "Private",
     bedAvailability: {
@@ -61,11 +61,11 @@ const hospitals = [
     password: "Hospital@123",
     location: {
       type: "Point",
-      coordinates: [72.8777, 19.0760], // Mumbai
-      address: "Bandra West",
-      city: "Mumbai",
-      state: "Maharashtra",
-      pincode: "400050"
+      coordinates: [80.613539, 16.5236721], // Near test location
+      address: "Test Area",
+      city: "Test City",
+      state: "Test State",
+      pincode: "000000"
     },
     type: "Government",
     bedAvailability: {
@@ -103,11 +103,11 @@ const hospitals = [
     password: "Hospital@123",
     location: {
       type: "Point",
-      coordinates: [77.5946, 12.9716], // Bangalore
-      address: "Whitefield",
-      city: "Bangalore",
-      state: "Karnataka",
-      pincode: "560066"
+      coordinates: [80.613539, 16.5236721], // Near test location
+      address: "Test Area",
+      city: "Test City",
+      state: "Test State",
+      pincode: "000000"
     },
     type: "Private",
     bedAvailability: {
@@ -145,11 +145,11 @@ const hospitals = [
     password: "Hospital@123",
     location: {
       type: "Point",
-      coordinates: [78.4867, 17.3850], // Hyderabad
-      address: "Gachibowli",
-      city: "Hyderabad",
-      state: "Telangana",
-      pincode: "500032"
+      coordinates: [80.613539, 16.5236721], // Near test location
+      address: "Test Area",
+      city: "Test City",
+      state: "Test State",
+      pincode: "000000"
     },
     type: "Private",
     bedAvailability: {
@@ -187,11 +187,11 @@ const hospitals = [
     password: "Hospital@123",
     location: {
       type: "Point",
-      coordinates: [88.3639, 22.5726], // Kolkata
-      address: "Salt Lake",
-      city: "Kolkata",
-      state: "West Bengal",
-      pincode: "700091"
+      coordinates: [80.613539, 16.5236721], // Near test location
+      address: "Test Area",
+      city: "Test City",
+      state: "Test State",
+      pincode: "000000"
     },
     type: "Private",
     bedAvailability: {
@@ -229,11 +229,11 @@ const hospitals = [
     password: "Hospital@123",
     location: {
       type: "Point",
-      coordinates: [79.1325, 12.9165], // Vellore
-      address: "Ida Scudder Road",
-      city: "Vellore",
-      state: "Tamil Nadu",
-      pincode: "632004"
+      coordinates: [80.613539, 16.5236721], // Near test location
+      address: "Test Area",
+      city: "Test City",
+      state: "Test State",
+      pincode: "000000"
     },
     type: "Charitable",
     bedAvailability: {
@@ -277,11 +277,11 @@ const hospitals = [
     password: "Hospital@123",
     location: {
       type: "Point",
-      coordinates: [75.7873, 26.9124], // Jaipur
-      address: "Malviya Nagar",
-      city: "Jaipur",
-      state: "Rajasthan",
-      pincode: "302017"
+      coordinates: [80.613539, 16.5236721], // Near test location
+      address: "Test Area",
+      city: "Test City",
+      state: "Test State",
+      pincode: "000000"
     },
     type: "Private",
     bedAvailability: {
@@ -319,11 +319,11 @@ const hospitals = [
     password: "Hospital@123",
     location: {
       type: "Point",
-      coordinates: [73.8567, 18.5204], // Pune
-      address: "Kalyani Nagar",
-      city: "Pune",
-      state: "Maharashtra",
-      pincode: "411006"
+      coordinates: [80.613539, 16.5236721], // Near test location
+      address: "Test Area",
+      city: "Test City",
+      state: "Test State",
+      pincode: "000000"
     },
     type: "Private",
     bedAvailability: {
@@ -361,11 +361,11 @@ const hospitals = [
     password: "Hospital@123",
     location: {
       type: "Point",
-      coordinates: [72.5714, 23.0225], // Ahmedabad
-      address: "Satellite",
-      city: "Ahmedabad",
-      state: "Gujarat",
-      pincode: "380015"
+      coordinates: [80.613539, 16.5236721], // Near test location
+      address: "Test Area",
+      city: "Test City",
+      state: "Test State",
+      pincode: "000000"
     },
     type: "Private",
     bedAvailability: {
@@ -403,11 +403,11 @@ const hospitals = [
     password: "Hospital@123",
     location: {
       type: "Point",
-      coordinates: [80.2707, 13.0827], // Chennai
-      address: "Park Town",
-      city: "Chennai",
-      state: "Tamil Nadu",
-      pincode: "600003"
+      coordinates: [80.613539, 16.5236721], // Near test location
+      address: "Test Area",
+      city: "Test City",
+      state: "Test State",
+      pincode: "000000"
     },
     type: "Government",
     bedAvailability: {

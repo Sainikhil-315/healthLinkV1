@@ -420,19 +420,28 @@ async function acceptTrip(req, res) {
       return res.status(400).json(createError(AMBULANCE_ERRORS.NOT_AVAILABLE));
     }
 
-    // Accept trip
-    ambulance.acceptTrip(incidentId);
-    await ambulance.save();
 
+    // Accept trip: update incident fields
+    incident.ambulance = ambulanceId;
+    incident.pendingAmbulanceRequests = incident.pendingAmbulanceRequests.filter(
+      id => id.toString() !== ambulanceId.toString()
+    );
     incident.status = 'ambulance_dispatched';
     await incident.save();
 
+    // Optionally update ambulance status if needed
+    ambulance.acceptTrip(incidentId);
+    await ambulance.save();
+
     logger.info(`Trip accepted: Ambulance ${ambulanceId} -> Incident ${incidentId}`);
+
+    // Fetch updated incident with populated ambulance if needed
+    const updatedIncident = await Incident.findById(incident._id);
 
     res.status(200).json({
       success: true,
       message: 'Trip accepted successfully',
-      data: { incident }
+      data: { incident: updatedIncident }
     });
 
   } catch (error) {
@@ -589,6 +598,22 @@ async function getPendingRequests(req, res) {
   }
 }
 
+// Mark ambulance as arrived at incident (set incident status)
+async function arriveAtIncident(req, res) {
+  try {
+    const { incidentId } = req.params;
+    const incident = await Incident.findById(incidentId);
+    if (!incident) {
+      return res.status(404).json({ success: false, message: 'Incident not found' });
+    }
+    incident.status = 'ambulance_arrived';
+    await incident.save();
+    res.json({ success: true, data: { incident } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to mark as arrived', error: error.message });
+  }
+}
+
 module.exports = {
   registerAmbulance,
   getAmbulanceProfile,
@@ -603,4 +628,5 @@ module.exports = {
   completeTrip,
   getAmbulanceStats,
   getPendingRequests,
+  arriveAtIncident
 }
