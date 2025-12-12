@@ -20,7 +20,7 @@ const DashboardStack = () => (
     <Stack.Screen name="ActiveEmergency" component={ActiveEmergencyScreen} />
     <Stack.Screen name="Navigation" component={NavigationScreen} />
     <Stack.Screen name="EquipmentStatus" component={EquipmentStatusScreen} />
-    <Stack.Screen name="IncomingRequests" component={IncomingRequestsScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="IncomingRequests" component={IncomingRequestsScreen} />
   </Stack.Navigator>
 );
 

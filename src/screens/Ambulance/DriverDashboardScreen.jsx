@@ -35,8 +35,36 @@ const DriverDashboardScreen = ({ navigation }) => {
   const { isTracking, startBackgroundTracking, stopBackgroundTracking } =
     useBackgroundLocation();
 
+  // ✅ FIX: Move loadData inside useEffect and add proper cleanup
   useEffect(() => {
-    socketService.on('ambulance:request', data => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [profileResult, statsResult] = await Promise.all([
+          ambulanceService.getAmbulanceProfile(),
+          ambulanceService.getStats(),
+        ]);
+
+        if (profileResult.success) {
+          setProfile(profileResult.data.ambulance);
+          setIsOnDuty(
+            profileResult.data.ambulance.status === 'available' ||
+              profileResult.data.ambulance.status === 'on_duty',
+          );
+        }
+
+        if (statsResult.success) {
+          setStats(statsResult.data.stats);
+        }
+      } catch (error) {
+        console.error('Load data error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Setup socket listener
+    const handleAmbulanceRequest = (data) => {
       setPendingRequests(prev => [data, ...prev]);
       // Show alert
       Alert.alert(
@@ -49,15 +77,22 @@ const DriverDashboardScreen = ({ navigation }) => {
           },
         ],
       );
-    });
+    };
 
-    return () => socketService.off('ambulance:request');
+    socketService.on('ambulance:request', handleAmbulanceRequest);
+
+    // Load initial data
     loadData();
-  }, []);
 
-  const loadData = async () => {
+    // ✅ Cleanup socket listener
+    return () => {
+      socketService.off('ambulance:request', handleAmbulanceRequest);
+    };
+  }, []); // ✅ Empty dependency array - only run once on mount
+
+  const onRefresh = async () => {
+    setRefreshing(true);
     try {
-      setLoading(true);
       const [profileResult, statsResult] = await Promise.all([
         ambulanceService.getAmbulanceProfile(),
         ambulanceService.getStats(),
@@ -75,16 +110,10 @@ const DriverDashboardScreen = ({ navigation }) => {
         setStats(statsResult.data.stats);
       }
     } catch (error) {
-      console.error('Load data error:', error);
+      console.error('Refresh error:', error);
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
   };
 
   const handleToggleDuty = async () => {

@@ -562,6 +562,33 @@ async function getAmbulanceStats(req, res) {
   }
 };
 
+/**
+ * @desc    Get pending emergency requests for this ambulance
+ * @route   GET /api/v1/ambulances/requests/pending
+ * @access  Private (Ambulance)
+ */
+async function getPendingRequests(req, res) {
+  try {
+    const ambulanceId = req.user.id;
+    // Find incidents where this ambulance is in pendingAmbulanceRequests and not assigned
+    const requests = await Incident.find({
+      pendingAmbulanceRequests: ambulanceId,
+      ambulance: null,
+      status: 'pending'
+    })
+      .select('-__v')
+      .lean();
+    res.status(200).json({ success: true, data: { requests } });
+  } catch (error) {
+    logger.error('Get pending ambulance requests error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch pending requests',
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   registerAmbulance,
   getAmbulanceProfile,
@@ -574,5 +601,6 @@ module.exports = {
   acceptTrip,
   startTrip,
   completeTrip,
-  getAmbulanceStats
+  getAmbulanceStats,
+  getPendingRequests,
 }

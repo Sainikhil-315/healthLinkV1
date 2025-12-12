@@ -149,6 +149,12 @@ const incidentSchema = new mongoose.Schema({
     default: null
   },
   
+  // ✅ NEW: Track pending ambulance requests (before acceptance)
+  pendingAmbulanceRequests: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Ambulance'
+  }],
+  
   volunteer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Volunteer',
@@ -333,20 +339,25 @@ incidentSchema.methods.updateStatus = function(newStatus, actor, actorModel) {
   this.addTimelineEvent(newStatus, eventDescriptions[newStatus], actor, actorModel);
 };
 
-// Assign ambulance
+// ✅ FIXED: Assign ambulance (only called when driver ACCEPTS)
 incidentSchema.methods.assignAmbulance = function(ambulanceId, eta) {
   this.ambulance = ambulanceId;
-  this.estimatedTimes.ambulanceETA = eta;
+  if (eta) {
+    this.estimatedTimes = this.estimatedTimes || {};
+    this.estimatedTimes.ambulanceETA = eta;
+  }
   this.updateStatus('ambulance_dispatched', ambulanceId, 'Ambulance');
   
   // Calculate dispatch time
   const dispatchTime = (Date.now() - this.sosTriggeredAt) / 1000;
+  this.responseTimes = this.responseTimes || {};
   this.responseTimes.ambulanceDispatchTime = dispatchTime;
 };
 
 // Assign volunteer
 incidentSchema.methods.assignVolunteer = function(volunteerId, eta) {
   this.volunteer = volunteerId;
+  this.estimatedTimes = this.estimatedTimes || {};
   this.estimatedTimes.volunteerETA = eta;
   this.addTimelineEvent(
     'volunteer_dispatched',
@@ -359,6 +370,7 @@ incidentSchema.methods.assignVolunteer = function(volunteerId, eta) {
 // Assign hospital
 incidentSchema.methods.assignHospital = function(hospitalId, eta) {
   this.hospital = hospitalId;
+  this.estimatedTimes = this.estimatedTimes || {};
   this.estimatedTimes.hospitalETA = eta;
 };
 
@@ -394,6 +406,7 @@ incidentSchema.methods.resolve = function(outcome) {
   this.outcome = outcome;
   
   // Calculate total response time
+  this.responseTimes = this.responseTimes || {};
   this.responseTimes.totalResponseTime = 
     (this.resolvedAt - this.sosTriggeredAt) / 1000;
   

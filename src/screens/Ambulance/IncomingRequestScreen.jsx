@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -20,56 +21,85 @@ import Button from '../../components/common/Button';
 
 const IncomingRequestsScreen = ({ navigation }) => {
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const isMounted = useRef(true);
 
-  useEffect(() => {
-    loadRequests();
-    setupSocketListeners();
+  // Helper: Add or update request in list
+  const upsertRequest = (data) => {
+    setRequests((prev) => {
+      const exists = prev.find((r) => r.incidentId === data.incidentId);
+      if (exists) {
+        // Optionally update the request if needed
+        return prev.map((r) =>
+          r.incidentId === data.incidentId ? { ...r, ...data } : r
+        );
+      }
+      return [data, ...prev];
+    });
+  };
 
-    return () => {
-      socketService.off('ambulance:request');
-    };
-  }, []);
-
+  // Load requests from backend
   const loadRequests = async () => {
-    // In production, fetch pending requests from API
-    // For now, listen via socket
+    setLoading(true);
+    try {
+      const result = await ambulanceService.getPendingRequests();
+      if (result.success) {
+        // Use result.data.requests for the array
+        setRequests(result.data?.requests || []);
+      } else {
+        setRequests([]);
+        Toast.show({
+          type: 'error',
+          text1: 'Failed to load requests',
+          text2: result.error,
+        });
+      }
+    } catch (error) {
+      setRequests([]);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Could not fetch pending requests',
+      });
+    }
     setLoading(false);
   };
 
-  const setupSocketListeners = () => {
-    // Listen for new emergency requests
-    socketService.on('ambulance:request', (data) => {
-      console.log('🚑 NEW EMERGENCY REQUEST:', data);
-      
-      // Add to requests list
-      setRequests((prev) => {
-        const exists = prev.find((r) => r.incidentId === data.incidentId);
-        if (exists) return prev;
-        return [data, ...prev];
-      });
+  // Socket event handler
+  useEffect(() => {
+    isMounted.current = true;
+    loadRequests();
 
-      // Show notification
+    const handleNewRequest = (data) => {
+      if (!data) return;
+      upsertRequest(data);
       Toast.show({
         type: 'error',
         text1: '🚨 Emergency Request',
         text2: `${data.severity} - ${data.distance?.toFixed(1)}km away`,
         visibilityTime: 10000,
         autoHide: false,
-        onPress: () => {
-          navigation.navigate('IncomingRequests');
-        },
+        onPress: () => navigation.navigate('IncomingRequests'),
       });
-    });
-  };
+    };
+    socketService.on('ambulance:request', handleNewRequest);
 
+    return () => {
+      isMounted.current = false;
+      socketService.off('ambulance:request', handleNewRequest);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Pull to refresh
   const onRefresh = async () => {
     setRefreshing(true);
     await loadRequests();
     setRefreshing(false);
   };
 
+  // Accept request
   const handleAccept = async (request) => {
     Alert.alert(
       'Accept Emergency?',
@@ -80,23 +110,14 @@ const IncomingRequestsScreen = ({ navigation }) => {
           text: 'Accept',
           onPress: async () => {
             try {
-              const result = await ambulanceService.acceptTrip(
-                request.incidentId
-              );
-
+              const result = await ambulanceService.acceptTrip(request.incidentId);
               if (result.success) {
-                // Remove from list
-                setRequests((prev) =>
-                  prev.filter((r) => r.incidentId !== request.incidentId)
-                );
-
+                setRequests((prev) => prev.filter((r) => r.incidentId !== request.incidentId));
                 Toast.show({
                   type: 'success',
                   text1: 'Trip Accepted',
                   text2: 'Navigate to patient location',
                 });
-
-                // Navigate to active emergency
                 navigation.navigate('ActiveEmergency');
               } else {
                 Toast.show({
@@ -118,25 +139,26 @@ const IncomingRequestsScreen = ({ navigation }) => {
     );
   };
 
+  // Decline request
   const handleDecline = (request) => {
-    Alert.alert('Decline Request?', 'This request will be sent to other ambulances.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Decline',
-        style: 'destructive',
-        onPress: () => {
-          setRequests((prev) =>
-            prev.filter((r) => r.incidentId !== request.incidentId)
-          );
-          Toast.show({
-            type: 'info',
-            text1: 'Request Declined',
-          });
+    Alert.alert(
+      'Decline Request?',
+      'This request will be sent to other ambulances.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: () => {
+            setRequests((prev) => prev.filter((r) => r.incidentId !== request.incidentId));
+            Toast.show({ type: 'info', text1: 'Request Declined' });
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
+  // Severity color helper
   const getSeverityColor = (severity) => {
     const colors = {
       critical: COLORS.error,
@@ -147,36 +169,27 @@ const IncomingRequestsScreen = ({ navigation }) => {
     return colors[severity?.toLowerCase()] || COLORS.textSecondary;
   };
 
+  // Render each request card
   const renderRequest = ({ item }) => (
     <Card style={styles.requestCard}>
       <View style={styles.requestHeader}>
-        <View
-          style={[
-            styles.severityBadge,
-            { backgroundColor: getSeverityColor(item.severity) },
-          ]}
-        >
+        <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(item.severity) }]}> 
           <Text style={styles.severityText}>{item.severity}</Text>
         </View>
         <View style={styles.distanceContainer}>
           <Icon name="navigate" size={16} color={COLORS.textSecondary} />
-          <Text style={styles.distanceText}>
-            {item.distance?.toFixed(1)}km away
-          </Text>
+          <Text style={styles.distanceText}>{item.distance?.toFixed(1)}km away</Text>
         </View>
       </View>
-
       <View style={styles.requestDetails}>
         <View style={styles.detailRow}>
           <Icon name="location" size={18} color={COLORS.primary} />
           <Text style={styles.detailText}>{item.address || 'Unknown location'}</Text>
         </View>
-
         <View style={styles.detailRow}>
           <Icon name="time" size={18} color={COLORS.info} />
           <Text style={styles.detailText}>ETA: {item.eta} min</Text>
         </View>
-
         {item.bloodRequired && (
           <View style={styles.detailRow}>
             <Icon name="water" size={18} color={COLORS.error} />
@@ -184,7 +197,6 @@ const IncomingRequestsScreen = ({ navigation }) => {
           </View>
         )}
       </View>
-
       <View style={styles.requestActions}>
         <Button
           title="Decline"
@@ -214,15 +226,12 @@ const IncomingRequestsScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>Emergency Requests</Text>
         <View style={{ width: 24 }} />
       </View>
-
       <FlatList
         data={requests}
         renderItem={renderRequest}
         keyExtractor={(item) => item.incidentId}
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Icon name="notifications-off" size={80} color={COLORS.textSecondary} />

@@ -77,9 +77,8 @@ async function createEmergency(req, res) {
         knownConditions: user.healthProfile?.chronicConditions || [],
         knownMedications: user.healthProfile?.currentMedications?.map(m => m.name) || []
       };
-      incidentData.severity = 'high'; // Default for self
+      incidentData.severity = 'high';
     } else {
-      // Bystander emergency - calculate severity from triage
       const severity = calculateSeverity(triageAnswers);
       incidentData.triage = {
         isConscious: triageAnswers.conscious,
@@ -111,7 +110,7 @@ async function createEmergency(req, res) {
     // Generate action plan
     const actionPlan = generateActionPlan(incident.severity, incidentData.triage || {});
 
-    // Find and dispatch ambulance
+    // ✅ FIXED: Find ambulances but DON'T assign automatically
     const availableAmbulances = await Ambulance.find({
       status: 'available',
       isActive: true,
@@ -129,10 +128,15 @@ async function createEmergency(req, res) {
       bestAmbulance = findBestAmbulance([nearestAmbulances], incident);
 
       if (bestAmbulance) {
-        incident.assignAmbulance(bestAmbulance.ambulanceId, bestAmbulance.eta);
+        // ✅ FIXED: Store ETA but DON'T assign yet - just store the suggested ambulance
+        incident.estimatedTimes = incident.estimatedTimes || {};
+        incident.estimatedTimes.ambulanceETA = bestAmbulance.eta;
+        
+        // ✅ FIXED: Add a field to track pending ambulance requests
+        incident.pendingAmbulanceRequests = [bestAmbulance.ambulanceId];
         await incident.save();
 
-        // Notify ambulance
+        // ✅ FIXED: Send REQUEST notification (not assignment)
         const ambulance = await Ambulance.findById(bestAmbulance.ambulanceId);
         if (ambulance) {
           await notifyAmbulance(ambulance, incident, bestAmbulance.eta);
@@ -142,7 +146,7 @@ async function createEmergency(req, res) {
       logger.warn(`No ambulance available for incident ${incident._id}`);
     }
 
-    // Find and assign hospital
+    // Find and assign hospital (this stays the same)
     const availableHospitals = await Hospital.find({
       isActive: true,
       isVerified: true,
@@ -156,7 +160,6 @@ async function createEmergency(req, res) {
       30
     );
 
-    // FIXED: Fetch hospital details safely
     let assignedHospital = null;
     if (nearestHospital) {
       assignedHospital = await Hospital.findById(nearestHospital.hospitalId);
@@ -229,16 +232,16 @@ async function createEmergency(req, res) {
 
     logger.info(`Emergency created: ${incident._id} (${incident.severity})`);
 
-    // FIXED: Safe response construction
+    // ✅ FIXED: Response shows pending status
     res.status(201).json({
       success: true,
-      message: 'Emergency alert created successfully',
+      message: 'Emergency alert created successfully. Ambulance has been notified.',
       data: {
         incident: {
           id: incident._id,
           type: incident.type,
           severity: incident.severity,
-          status: incident.status,
+          status: incident.status, // Will be 'pending' until ambulance accepts
           ambulanceETA: bestAmbulance?.eta || null,
           hospitalName: assignedHospital?.name || null,
           hospitalId: assignedHospital?._id || null,
@@ -255,7 +258,7 @@ async function createEmergency(req, res) {
       error: error.message
     });
   }
-};
+}
 
 /**
  * @desc    Get emergency details
@@ -543,6 +546,79 @@ async function getNearbyEmergencies(req, res) {
   res.status(200).json({ success: true, data: { emergencies: [] } });
 };
 
+/**
+ * @desc    Accept trip request
+ * @route   POST /api/v1/ambulances/trip/:incidentId/accept
+ * @access  Private (Ambulance)
+ */
+async function acceptTrip(req, res) {
+  try {
+
+    const ambulanceId = req.user.id;
+    const { incidentId } = req.params;
+    console.log('[acceptTrip] ambulanceId:', ambulanceId, 'incidentId:', incidentId);
+
+    const ambulance = await Ambulance.findById(ambulanceId);
+    const incident = await Incident.findById(incidentId);
+
+    if (!ambulance) {
+      return res.status(404).json(createError(AMBULANCE_ERRORS.NOT_FOUND));
+    }
+
+    if (!incident) {
+      return res.status(404).json({
+        success: false,
+        message: 'Incident not found'
+      });
+    }
+
+    // ✅ FIXED: Check if ambulance is still available
+    if (!ambulance.isAvailable()) {
+      return res.status(400).json(createError(AMBULANCE_ERRORS.NOT_AVAILABLE));
+    }
+
+    // ✅ FIXED: Check if incident is still pending (not already accepted by another ambulance)
+    if (incident.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'This emergency has already been accepted by another ambulance'
+      });
+    }
+
+    // ✅ FIXED: Now assign the ambulance (this actually accepts the trip)
+
+    incident.assignAmbulance(ambulanceId, incident.estimatedTimes?.ambulanceETA || null);
+    await incident.save();
+    console.log('[acceptTrip] Updated incident after save:', JSON.stringify(incident, null, 2));
+
+    // ✅ Accept trip on ambulance side
+    ambulance.acceptTrip(incidentId);
+    await ambulance.save();
+
+    // ✅ Clear pending requests
+    if (incident.pendingAmbulanceRequests) {
+      incident.pendingAmbulanceRequests = [];
+      await incident.save();
+    }
+
+    logger.info(`Trip accepted: Ambulance ${ambulanceId} -> Incident ${incidentId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Trip accepted successfully',
+      data: { incident }
+    });
+
+  } catch (error) {
+    logger.error('Accept trip error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to accept trip',
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   createEmergency,
   getEmergency,
@@ -556,5 +632,6 @@ module.exports = {
   getEmergencyTracking,
   getEmergencyTimeline,
   rateResponder,
-  getNearbyEmergencies
+  getNearbyEmergencies,
+  acceptTrip
 }

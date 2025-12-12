@@ -189,4 +189,16 @@ router.get(
   getAmbulanceStats
 );
 
+/**
+ * @route   GET /api/v1/ambulances/requests/pending
+ * @desc    Get pending emergency requests for this ambulance
+ * @access  Private (Ambulance)
+ */
+router.get(
+  '/requests/pending',
+  authenticate,
+  ambulanceOnly,
+  require('../controllers/ambulanceController').getPendingRequests
+);
+
 module.exports = router;

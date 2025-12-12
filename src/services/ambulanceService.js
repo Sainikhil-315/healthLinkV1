@@ -152,6 +152,21 @@ class AmbulanceService {
       };
     }
   }
+
+  async getPendingRequests() {
+    try {
+      const response = await apiService.getPendingRequests();
+      return {
+        success: true,
+        data: response.data.requests,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to fetch pending requests',
+      };
+    }
+  }
 }
 
 const ambulanceService = new AmbulanceService();

@@ -23,7 +23,8 @@ const {
   getEmergencyTracking,
   getEmergencyTimeline,
   rateResponder,
-  getNearbyEmergencies
+  getNearbyEmergencies,
+  acceptTrip
 } = require('../controllers/emergencyController.js');
 
 const router = express.Router();
@@ -196,6 +197,14 @@ router.post(
   validateObjectId('id'),
   sanitizeInput,
   rateResponder
+);
+
+router.post(
+  '/:id/accept-trip',
+  authenticate,
+  responderOnly,
+  validateObjectId('id'),
+  acceptTrip
 );
 
 module.exports = router;
