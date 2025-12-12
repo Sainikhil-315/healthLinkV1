@@ -81,7 +81,11 @@ async function createEmergency(req, res) {
     } else {
       // Bystander emergency - calculate severity from triage
       const severity = calculateSeverity(triageAnswers);
-      incidentData.triage = triageAnswers;
+      incidentData.triage = {
+        isConscious: triageAnswers.conscious,
+        isBreathing: triageAnswers.breathing,
+        isBleeding: triageAnswers.bleeding
+      };
       incidentData.severity = severity;
       incidentData.patient = {
         name: 'Unknown victim',

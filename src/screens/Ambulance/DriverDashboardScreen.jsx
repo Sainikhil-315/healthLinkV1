@@ -16,6 +16,7 @@ import useAuthStore from '../../store/authStore';
 import ambulanceService from '../../services/ambulanceService';
 import useGeolocation from '../../hooks/useGeolocation';
 import useBackgroundLocation from '../../hooks/useBackgroundLocation';
+import socketService from '../../services/socketService';
 import { COLORS } from '../../utils/constants';
 import Card from '../../components/common/Card';
 import Loader from '../../components/common/Loader';
@@ -27,6 +28,7 @@ const DriverDashboardScreen = ({ navigation }) => {
   const [isOnDuty, setIsOnDuty] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pendingRequests, setPendingRequests] = useState([]);
 
   const { location, getCurrentLocation, startTracking, stopTracking } =
     useGeolocation();
@@ -34,6 +36,22 @@ const DriverDashboardScreen = ({ navigation }) => {
     useBackgroundLocation();
 
   useEffect(() => {
+    socketService.on('ambulance:request', data => {
+      setPendingRequests(prev => [data, ...prev]);
+      // Show alert
+      Alert.alert(
+        '🚨 New Emergency',
+        `${data.severity} - ${data.distance?.toFixed(1)}km away`,
+        [
+          {
+            text: 'View',
+            onPress: () => navigation.navigate('IncomingRequests'),
+          },
+        ],
+      );
+    });
+
+    return () => socketService.off('ambulance:request');
     loadData();
   }, []);
 
@@ -142,9 +160,9 @@ const DriverDashboardScreen = ({ navigation }) => {
   const handleEquipmentStatus = () => {
     navigation.navigate('EquipmentStatus', {
       profile,
-      onEquipmentUpdate: (updatedEquipment) => {
-        setProfile((prev) => ({ ...prev, equipment: updatedEquipment }));
-      }
+      onEquipmentUpdate: updatedEquipment => {
+        setProfile(prev => ({ ...prev, equipment: updatedEquipment }));
+      },
     });
   };
 
@@ -229,7 +247,24 @@ const DriverDashboardScreen = ({ navigation }) => {
             </View>
           )}
         </Card>
-
+        {pendingRequests.length > 0 && (
+          <TouchableOpacity
+            style={styles.alertCard}
+            onPress={() => navigation.navigate('IncomingRequests')}
+          >
+            <View style={styles.alertIcon}>
+              <Icon name="alert-circle" size={32} color={COLORS.error} />
+            </View>
+            <View style={styles.alertContent}>
+              <Text style={styles.alertTitle}>
+                {pendingRequests.length} Pending Request
+                {pendingRequests.length > 1 ? 's' : ''}
+              </Text>
+              <Text style={styles.alertSubtitle}>Tap to view and accept</Text>
+            </View>
+            <Icon name="chevron-forward" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+        )}
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
           <StatCard
@@ -460,6 +495,28 @@ const styles = StyleSheet.create({
   },
   infoLabel: { fontSize: 14, color: COLORS.textSecondary },
   infoValue: { fontSize: 14, fontWeight: '500', color: COLORS.text },
+  alertCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.error + '10',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: COLORS.error,
+  },
+  alertIcon: { marginRight: 12 },
+  alertContent: { flex: 1 },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.error,
+  },
+  alertSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
 });
 
 export default DriverDashboardScreen;

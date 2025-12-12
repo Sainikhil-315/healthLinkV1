@@ -72,10 +72,10 @@ const EmergencySOSScreen = ({ navigation }) => {
       };
 
       if (type === EMERGENCY_TYPES.BYSTANDER && triage) {
-        emergencyData.triage = {
-          isConscious: triage.conscious,
-          isBreathing: triage.breathing,
-          isBleeding: triage.bleeding,
+        emergencyData.triageAnswers = {
+          conscious: triage.conscious,
+          breathing: triage.breathing,
+          bleeding: triage.bleeding,
         };
       }
 

@@ -8,6 +8,7 @@ import NavigationScreen from '../screens/Ambulance/NavigationScreen';
 import CompletedTripsScreen from '../screens/Ambulance/CompletedTripsScreen';
 import EquipmentStatusScreen from '../screens/Ambulance/EquipmentStatusScreen';
 import ProfileSettingsScreen from '../screens/Ambulance/ProfileSettingsScreen';
+import IncomingRequestsScreen from '../screens/Ambulance/IncomingRequestScreen';
 import { COLORS } from '../utils/constants';
 
 const Tab = createBottomTabNavigator();
@@ -19,6 +20,7 @@ const DashboardStack = () => (
     <Stack.Screen name="ActiveEmergency" component={ActiveEmergencyScreen} />
     <Stack.Screen name="Navigation" component={NavigationScreen} />
     <Stack.Screen name="EquipmentStatus" component={EquipmentStatusScreen} />
+    <Stack.Screen name="IncomingRequests" component={IncomingRequestsScreen} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 
@@ -55,37 +57,37 @@ const AmbulanceNavigator = () => {
           borderTopColor: COLORS.border,
           height: 60,
           paddingBottom: 8,
-          paddingTop: 8
-        }
+          paddingTop: 8,
+        },
       })}
     >
-      <Tab.Screen 
-        name="Home" 
+      <Tab.Screen
+        name="Home"
         component={DashboardStack}
         options={{
-          tabBarLabel: 'Home'
+          tabBarLabel: 'Home',
         }}
       />
-      <Tab.Screen 
-        name="Emergency" 
+      <Tab.Screen
+        name="Emergency"
         component={ActiveEmergencyScreen}
         options={{
           tabBarLabel: 'Active Trip',
-          tabBarLabelStyle: { fontWeight: 'bold' }
+          tabBarLabelStyle: { fontWeight: 'bold' },
         }}
       />
-      <Tab.Screen 
-        name="Trips" 
+      <Tab.Screen
+        name="Trips"
         component={CompletedTripsScreen}
         options={{
-          tabBarLabel: 'History'
+          tabBarLabel: 'History',
         }}
       />
-      <Tab.Screen 
-        name="Settings" 
+      <Tab.Screen
+        name="Settings"
         component={ProfileStack}
         options={{
-          tabBarLabel: 'Profile'
+          tabBarLabel: 'Profile',
         }}
       />
     </Tab.Navigator>
